@@ -33,3 +33,4 @@ Les fichiers générés débutent avec la valeur de N sur la première ligne et 
 3	0	1	1
 ```
 
+**Pour chacun des trois algorithmes, mesurez le temps d’exécution des exemplaires et rapportez dans un tableau le temps moyen pour chaque taille d’exemplaire.**
