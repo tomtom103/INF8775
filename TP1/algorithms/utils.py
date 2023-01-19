@@ -30,3 +30,28 @@ def parse_matrix(file_path: _PathLike) -> MatrixT:
         raise InvalidMatrixSize("Final matrix size does not match the one specified in the file")
 
     return result
+
+
+def multiply(A: MatrixT, B: MatrixT) -> MatrixT:
+    C = [[0 for _ in range(len(A))] for _ in range(len(A))] # Memory allocation
+    for i in range(len(A)):
+        for j in range(len(A)):
+            for k in range(len(A)):
+                C[i][j] += A[i][k] * B[k][j]
+    return C
+
+
+def add(A: MatrixT, B: MatrixT) -> MatrixT:
+    C = [[0 for _ in range(len(A))] for _ in range(len(A))] # Memory allocation
+    for i in range(len(A)):
+        for j in range(len(A)):
+            C[i][j] = A[i][j] + B[i][j]
+    return C
+
+
+def sub(A: MatrixT, B: MatrixT) -> MatrixT:
+    C = [[0 for _ in range(len(A))] for _ in range(len(A))] # Memory allocation
+    for i in range(len(A)):
+        for j in range(len(A)):
+            C[i][j] = A[i][j] - B[i][j]
+    return C
