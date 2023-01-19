@@ -5,7 +5,7 @@ from .utils import MatrixT, add, sub, multiply
 def _alloc_square_matrix(size: int) -> MatrixT:
     return [[0 for _ in range(size)] for _ in range(size)]
 
-LEAF_SIZE = 8
+LEAF_SIZE = 16
 
 def strassen_multiply(A: MatrixT, B: MatrixT) -> MatrixT:
     n = len(A) # common
