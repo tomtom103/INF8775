@@ -1,5 +1,5 @@
 import os
-from typing import List, Union
+from typing import List, Union, Any
 from tabulate import tabulate
 
 MatrixT = List[List[int]]
@@ -71,5 +71,5 @@ def sub(A: MatrixT, B: MatrixT) -> MatrixT:
             C[i][j] = A[i][j] - B[i][j]
     return C
 
-def print_results(table : List[List]):
+def print_results(table: List[List[Any]]) -> None:
     print(tabulate(table, headers=["Algorithm", "Matrix Size", "Leaf Size", "Execution Time", "Complexity"]))

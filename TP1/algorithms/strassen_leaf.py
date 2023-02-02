@@ -1,12 +1,9 @@
 from .utils import MatrixT, add, sub, multiply, alloc_square_matrix
 
-
-LEAF_SIZE = 16
-
-def strassen_multiply(A: MatrixT, B: MatrixT) -> MatrixT:
+def strassen_multiply(A: MatrixT, B: MatrixT, leaf_size: int = 16) -> MatrixT:
     n = len(A) # common
 
-    if n <= LEAF_SIZE:
+    if n <= leaf_size:
         return multiply(A, B)
 
     div_size = n // 2 # floor division
@@ -33,14 +30,14 @@ def strassen_multiply(A: MatrixT, B: MatrixT) -> MatrixT:
             b21[i][j] = B[i+div_size][j] # bottom left
             b22[i][j] = B[i+div_size][j+div_size] # bottom right
 
-    m1 = strassen_multiply(add(a11, a22), add(b11, b22)) # (a11 + a22) * (b11 + b22)
-    m2 = strassen_multiply(add(a21, a22), b11) # (a21 + a22) * b11
-    m3 = strassen_multiply(a11, sub(b12, b22)) # a11 * (b12 - b22)
-    m4 = strassen_multiply(a22, sub(b21, b11)) # a22 * (b21 - b11)
+    m1 = strassen_multiply(add(a11, a22), add(b11, b22), leaf_size) # (a11 + a22) * (b11 + b22)
+    m2 = strassen_multiply(add(a21, a22), b11, leaf_size) # (a21 + a22) * b11
+    m3 = strassen_multiply(a11, sub(b12, b22), leaf_size) # a11 * (b12 - b22)
+    m4 = strassen_multiply(a22, sub(b21, b11), leaf_size) # a22 * (b21 - b11)
 
-    m5 = strassen_multiply(add(a11, a12), b22) # (a11 + a12) * b22
-    m6 = strassen_multiply(sub(a21, a11), add(b11, b12)) # (a21 + a11) * (b11 + b12)
-    m7 = strassen_multiply(sub(a12, a22), add(b21, b22)) # (a12 + a22) * (b21 + b22)
+    m5 = strassen_multiply(add(a11, a12), b22, leaf_size) # (a11 + a12) * b22
+    m6 = strassen_multiply(sub(a21, a11), add(b11, b12), leaf_size) # (a21 + a11) * (b11 + b12)
+    m7 = strassen_multiply(sub(a12, a22), add(b21, b22), leaf_size) # (a12 + a22) * (b21 + b22)
 
     c12 = add(m3, m5) # m3 + m5
     c21 = add(m2, m4) # m2 + m4
