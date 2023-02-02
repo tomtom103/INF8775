@@ -1,9 +1,5 @@
-import numpy as np
+from .utils import MatrixT, add, sub, multiply, alloc_square_matrix
 
-from .utils import MatrixT, add, sub, multiply
-
-def _alloc_square_matrix(size: int) -> MatrixT:
-    return [[0 for _ in range(size)] for _ in range(size)]
 
 LEAF_SIZE = 16
 
@@ -15,15 +11,15 @@ def strassen_multiply(A: MatrixT, B: MatrixT) -> MatrixT:
 
     div_size = n // 2 # floor division
 
-    a11 = _alloc_square_matrix(div_size)
-    a12 = _alloc_square_matrix(div_size)
-    a21 = _alloc_square_matrix(div_size)
-    a22 = _alloc_square_matrix(div_size)
+    a11 = alloc_square_matrix(div_size)
+    a12 = alloc_square_matrix(div_size)
+    a21 = alloc_square_matrix(div_size)
+    a22 = alloc_square_matrix(div_size)
 
-    b11 = _alloc_square_matrix(div_size)
-    b12 = _alloc_square_matrix(div_size)
-    b21 = _alloc_square_matrix(div_size)
-    b22 = _alloc_square_matrix(div_size)
+    b11 = alloc_square_matrix(div_size)
+    b12 = alloc_square_matrix(div_size)
+    b21 = alloc_square_matrix(div_size)
+    b22 = alloc_square_matrix(div_size)
 
     for i in range(div_size):
         for j in range(div_size):
@@ -51,7 +47,7 @@ def strassen_multiply(A: MatrixT, B: MatrixT) -> MatrixT:
     c11 = sub(add(m1, m4), add(m5, m7)) # m1 + m4 - m5 + m7
     c22 = sub(add(add(m1, m3), m6), m2) # m1 + m3 + m6 - m2
     
-    C = _alloc_square_matrix(n)
+    C = alloc_square_matrix(n)
 
     for i in range(0, div_size):
         for j in range(0, div_size):

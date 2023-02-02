@@ -1,24 +1,24 @@
 import argparse
 import timeit
-import numpy as np
 
 from algorithms.utils import parse_matrix, multiply
 from algorithms.strassen import strassen_multiply
 from algorithms.strassen_leaf import strassen_multiply as strassen_multiply_leaf
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-A", required=True, type=str,
-                        help="File pointing to the first matrix")
-    parser.add_argument("-B", required=True, type=str,
-                        help="File pointing to the second matrix")
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("-A", required=True, type=str,
+    #                     help="File pointing to the first matrix")
+    # parser.add_argument("-B", required=True, type=str,
+    #                     help="File pointing to the second matrix")
 
-    args = parser.parse_args()
+    # args = parser.parse_args()
 
-    A = parse_matrix(args.A)
-    B = parse_matrix(args.B)
+    # A = parse_matrix(args.A)
+    # B = parse_matrix(args.B)
 
-    np_A, np_B = np.array(A), np.array(B)
+    A = parse_matrix("data/ex9_0")
+    B = parse_matrix("data/ex9_1")
 
     t = timeit.timeit('multiply(A, B)', globals=globals(), number=1)
     t2 = timeit.timeit('strassen_multiply(A, B)', globals=globals(), number=1)

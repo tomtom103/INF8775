@@ -1,5 +1,6 @@
 import os
 from typing import List, Union
+from tabulate import tabulate
 
 MatrixT = List[List[int]]
 _PathLike = Union[str, bytes, os.PathLike]
@@ -18,6 +19,11 @@ def _is_valid_dimensions(matrix: MatrixT, N: int) -> bool:
         and len(matrix) == 2 ** N 
     )
 
+
+def alloc_square_matrix(size: int) -> MatrixT:
+    return [[0 for _ in range(size)] for _ in range(size)]
+
+
 def parse_matrix(file_path: _PathLike) -> MatrixT:
     result = []
     with open(file_path, "r") as f:
@@ -33,6 +39,9 @@ def parse_matrix(file_path: _PathLike) -> MatrixT:
 
 
 def multiply(A: MatrixT, B: MatrixT) -> MatrixT:
+    """
+    Simple matrix multiplication
+    """
     C = [[0 for _ in range(len(A))] for _ in range(len(A))] # Memory allocation
     for i in range(len(A)):
         for j in range(len(A)):
@@ -42,6 +51,9 @@ def multiply(A: MatrixT, B: MatrixT) -> MatrixT:
 
 
 def add(A: MatrixT, B: MatrixT) -> MatrixT:
+    """
+    Simple matrix addition
+    """
     C = [[0 for _ in range(len(A))] for _ in range(len(A))] # Memory allocation
     for i in range(len(A)):
         for j in range(len(A)):
@@ -50,8 +62,14 @@ def add(A: MatrixT, B: MatrixT) -> MatrixT:
 
 
 def sub(A: MatrixT, B: MatrixT) -> MatrixT:
+    """
+    Simple matrix substraction
+    """
     C = [[0 for _ in range(len(A))] for _ in range(len(A))] # Memory allocation
     for i in range(len(A)):
         for j in range(len(A)):
             C[i][j] = A[i][j] - B[i][j]
     return C
+
+def print_results(table : List[List]):
+    print(tabulate(table, headers=["Algorithm", "Matrix Size", "Leaf Size", "Execution Time", "Complexity"]))
