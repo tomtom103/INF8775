@@ -71,5 +71,5 @@ def sub(A: MatrixT, B: MatrixT) -> MatrixT:
             C[i][j] = A[i][j] - B[i][j]
     return C
 
-def print_results(table: List[List[Any]]) -> None:
-    print(tabulate(table, headers=["Algorithm", "Matrix Size", "Leaf Size", "Execution Time", "Complexity"]))
+def print_results(table: List[List[Any]], headers: List[str]) -> None:
+    print(tabulate(table, headers=headers))

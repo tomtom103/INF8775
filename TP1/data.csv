@@ -1,22 +1,22 @@
 Algorithm,Matrix Size,Leaf Size,Execution Time,Complexity
-Classic,4,0,0.000778322,n^3
-Strassen,4,0,0.0271013,n^3
-Strassen with Leaf,4,64,0.00269125,n^3
-Classic,5,0,0.00387659,n^3
-Strassen,5,0,0.153922,n^3
-Strassen with Leaf,5,64,0.017811,n^3
-Classic,6,0,0.0284237,n^3
-Strassen,6,0,1.058,n^3
-Strassen with Leaf,6,64,0.147024,n^3
-Classic,7,0,0.225393,n^3
-Strassen,7,0,7.51557,n^3
-Strassen with Leaf,7,64,1.11897,n^3
-Classic,8,0,1.90422,n^3
-Strassen,8,0,56.8573,n^3
-Strassen with Leaf,8,64,8.70582,n^3
-Classic,9,0,16.2022,n^3
-Strassen,9,0,80.8125,n^3
-Strassen with Leaf,9,64,12.8886,n^3
-Classic,10,0,143.416,n^3
-Strassen,10,0,617.367,n^3
-Strassen with Leaf,10,64,106.395,n^3
+Classic,4,0,0.000664405,n^3
+Strassen,4,0,0.00563711,n^3
+Strassen with Leaf,4,64,0.000575237,n^3
+Classic,5,0,0.00395641,n^3
+Strassen,5,0,0.030539,n^3
+Strassen with Leaf,5,64,0.00354859,n^3
+Classic,6,0,0.0298926,n^3
+Strassen,6,0,0.223348,n^3
+Strassen with Leaf,6,64,0.0330758,n^3
+Classic,7,0,0.283076,n^3
+Strassen,7,0,1.56778,n^3
+Strassen with Leaf,7,64,0.233496,n^3
+Classic,8,0,2.07886,n^3
+Strassen,8,0,11.7314,n^3
+Strassen with Leaf,8,64,1.80185,n^3
+Classic,9,0,16.669,n^3
+Strassen,9,0,81.4587,n^3
+Strassen with Leaf,9,64,12.7839,n^3
+Classic,10,0,141.375,n^3
+Strassen,10,0,609.188,n^3
+Strassen with Leaf,10,64,106.172,n^3
