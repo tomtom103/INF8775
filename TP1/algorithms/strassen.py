@@ -1,6 +1,10 @@
 from .utils import MatrixT, add, sub, multiply, alloc_square_matrix
 
 def strassen_multiply(A: MatrixT, B: MatrixT) -> MatrixT:
+    """
+    Basé sur l'algorithme décrite sur:
+    https://en.wikipedia.org/wiki/Strassen_algorithm 
+    """
     n = len(A) # common
 
     div_size = n // 2 # floor division
