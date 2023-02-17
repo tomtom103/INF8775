@@ -1,6 +1,5 @@
 import os
-from typing import List, Union, Any
-from tabulate import tabulate
+from typing import List, Union
 
 MatrixT = List[List[int]]
 _PathLike = Union[str, bytes, os.PathLike]
@@ -70,6 +69,3 @@ def sub(A: MatrixT, B: MatrixT) -> MatrixT:
         for j in range(len(A)):
             C[i][j] = A[i][j] - B[i][j]
     return C
-
-def print_results(table: List[List[Any]], headers: List[str]) -> None:
-    print(tabulate(table, headers=headers))

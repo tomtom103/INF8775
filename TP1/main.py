@@ -1,41 +1,47 @@
-import timeit
+import time
+import argparse
+from pathlib import Path
 
-from tqdm import tqdm
-from algorithms.utils import parse_matrix, multiply, print_results
+from algorithms.utils import parse_matrix, multiply
 from algorithms.strassen import strassen_multiply
 from algorithms.strassen_leaf import strassen_multiply as strassen_multiply_leaf
 
 if __name__ == "__main__":
 
-    headers = ["Algorithm", "Matrix Size", "Leaf Size", "Execution Time", "Complexity"]
-    results = [headers]
+    algorithms = {
+        "conv": multiply,
+        "strassen": strassen_multiply,
+        "strassenSeuil": strassen_multiply_leaf
+    }
 
-    for i in tqdm(range(4, 11)):
-        if i >= 9:
-            num_exec = 1
-        else:
-            num_exec = 5
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-a", required=True, type=str,
+                        help="Algorithme à utiliser: \{conv, strassen, strassenSeuil\}")
+    parser.add_argument("-e1", required=True, type=str,
+                        help="Chemin vers la première matrice")
+    parser.add_argument("-e2", required=True, type=str,
+                        help="Chemin vers la deuxième matrice")
+    parser.add_argument("-p", action="store_true",
+                        help="Affiche la matrice résultat contenant uniquement les valeurs")
+    parser.add_argument("-t", action="store_true",
+                        help="Affiche le temps d'exécution en millisecondes")
+    args = parser.parse_args()
 
-        A = parse_matrix(f"data/ex{i}_0")
-        B = parse_matrix(f"data/ex{i}_1")
+    algorithm = args.a
+    if algorithm not in algorithms:
+        print(f"Algorithme inconnue, les algorithmes sont: {set(algorithms.keys())}")
+        exit(1)
 
-        multiply_t = timeit.timeit('multiply(A, B)', globals=globals(), number=num_exec) / num_exec
-        strassen_t = timeit.timeit('strassen_multiply(A, B)', globals=globals(), number=num_exec) / num_exec
-        strassen_leaf_t = timeit.timeit('strassen_multiply_leaf(A, B, 64)', globals=globals(), number=num_exec) / num_exec
+    display_matrix, display_time = bool(args.p), bool(args.t)
 
-        results.extend([
-            ['Classic', i, 0, multiply_t, "n^3"],
-            ['Strassen', i, 0, strassen_t, "n^3"],
-            ['Strassen avec Seuil', i, 64, strassen_leaf_t, "n^3"],
-        ])
+    A, B = parse_matrix(Path(args.e1)), parse_matrix(Path(args.e2))
 
-        # seuils = [2 ** i for i in range(4, 11)]
+    start = time.perf_counter_ns()
+    result = algorithms[args.a](A, B)
+    duration = time.perf_counter_ns() - start
 
-        # for seuil in tqdm(seuils):
-        #     strassen_leaf_t = timeit.timeit(f'strassen_multiply_leaf(A, B, {seuil})', globals=globals(), number=num_exec) / num_exec
+    if display_matrix:
+        print('\n'.join([' '.join([str(val) for val in row]) for row in result]))
 
-        #     results.extend([
-        #         ['Strassen avec Seuil', i, seuil, strassen_leaf_t, "n^3"],
-        #     ])
-
-    print_results(results[1:], headers)
+    if display_time:
+        print(duration / 1000)
