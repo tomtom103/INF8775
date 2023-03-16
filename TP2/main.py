@@ -1,18 +1,51 @@
 import argparse
 import time
-
 from pathlib import Path
+from typing import List
 
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+    plot = True
+except ModuleNotFoundError:
+    plot = False
+    pass
 
-from algorithms.utils import read_cities
-from algorithms.algorithms import greedy
+from algorithms.utils import read_cities, City
+from algorithms.algorithms import greedy, dynamic
+
+def _init_plot(cities: List[City], title: str) -> None:
+    plt.ion()
+    fig = plt.figure(0)
+    fig.suptitle(title)
+    x_lst, y_lst = [], []
+    for city in cities:
+        x_lst.append(city.x)
+        y_lst.append(city.y)
+    x_lst.append(cities[0].x)
+    y_lst.append(cities[0].y)
+
+    plt.plot(x_lst, y_lst, 'ro')
+    plt.show(block=False)
+
+def _plot_interactive(route: List[City], block: bool = False):
+    x1, y1, x2, y2 = route[-2].x, route[-2].y, route[-1].x, route[-1].y
+    plt.plot([x1, x2], [y1, y2], 'ro')
+    plt.plot([x1, x2], [y1, y2], 'g')
+    plt.draw()
+    plt.pause(0.07)
+    plt.show(block=block)
+
+def plot_route(route: List[City]) -> None:
+    # Close the graph inside the animation
+    route.append(route[0])
+    for i in range(2, len(route)):
+        _plot_interactive(route[:i], block=False)
 
 if __name__ == "__main__":
     
     algorithms = {
         'glouton': greedy,
-        'progdyn': ...,
+        'progdyn': dynamic,
         'approx': ...,
     }
 
@@ -40,12 +73,17 @@ if __name__ == "__main__":
 
     start = time.perf_counter_ns()
 
-    route, cost = algorithms[algorithm](cities, plot=bool(args.plot))
+    route, cost = algorithms[algorithm](cities)
 
     duration = time.perf_counter_ns() - start
 
     if bool(args.plot):
-        plt.show(block=True)
+        if plot:
+            _init_plot(cities, algorithm)
+            plot_route(route)
+            plt.show(block=True)
+        else:
+            print("Cannot plot the route, matplotlib is not installed...")
     elif bool(args.t):
         print(int(duration / 1000))
 
@@ -53,4 +91,5 @@ if __name__ == "__main__":
         # TODO
         ...
         print(cost)
-        print(route)
+        print(len(route))
+        # print(route)
