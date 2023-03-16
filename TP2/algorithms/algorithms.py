@@ -94,6 +94,59 @@ def dynamic(cities: List[City]):
 
     return [cities[i] for i in final_path], distance  
 
+from typing import Tuple 
+import math
+
+def mst(cities: List[City]) -> Tuple[List[City], float]:
+
+    arr, cost = greedy(cities)
+    graph = array_to_tree(arr)
+    preorder = preorder_traversal(graph)
+
+    # for i, val in enumerate(arr):
+    #     if a[i] != val:
+    #         print(f"Greedy value: {val}, preorder value: {a[i]}")
+
+
+    return preorder, path_cost(preorder)
     
 
-    
+class Node:
+    def __init__(self, data):
+        self.data = data
+        self.left = None
+        self.right = None
+
+def array_to_tree(arr):
+    if not arr:
+        return None
+    mid = len(arr) // 2
+    node = Node(arr[mid])
+    node.left = array_to_tree(arr[:mid])
+    node.right = array_to_tree(arr[mid+1:])
+    return node
+
+def preorder_traversal(root: Node):
+    if not root:
+        return []
+
+    stack = [root]
+    result = []
+
+    while stack:
+        node = stack.pop()
+        result.append(node.data)
+
+        if node.right:
+            stack.append(node.right)
+        if node.left:
+            stack.append(node.left)
+
+    return result
+
+
+
+
+
+
+
