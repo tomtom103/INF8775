@@ -1,6 +1,5 @@
-import sys
-import itertools
-from typing import List
+import functools
+from typing import List, Tuple, Dict
 
 from .utils import (
     City, 
@@ -22,78 +21,46 @@ def greedy(cities: List[City]):
         unvisited.remove(city) # O(1) since it's a set
 
     return route, path_cost(route) # O(n)
+ 
 
-def dynamic(cities: List[City]):
+def dynamic(cities: List[City]) -> Tuple[List[City], float]:
+    """
+    Function has n possible start vertices and 2 ^ n possible subgraphs.
+    
+    Function will be called on at most n * 2 ^ n distinct arguments
+
+    Each call performs at most O(n) work
+
+    Total work: O(n ^ 2 * 2 ^ n)
+    """
     distance_matrix = distanceGraph(cities) # Not counted in complexity
 
-    n = len(distance_matrix) # O(1)
-    # Set containing all nodes
-    set_of_nodes = set(range(n)) # O(n)
+    N = frozenset(range(1, len(distance_matrix))) # O(n)
+    memo: Dict[Tuple, int] = {}
 
-    # dict containing all sub-problem solutions
-    dp_dict = {(tuple([node]), node): tuple([0, None]) for node in set_of_nodes} # O(n)
-    # dict access is worst case O(n) for bad hash algorithm
-    # average access is O(1), performed n times
+    @functools.lru_cache(maxsize=1024)
+    def distance(ni: int, N: frozenset) -> float:
+        if not N:
+            return distance_matrix[ni][0] # O(1)
+        
+        costs = [
+            (nj, distance_matrix[ni][nj] + distance(nj, N.difference({nj}))) for nj in N
+        ]
+        nmin, min_cost = min(costs, key=lambda x: x[1])
+        memo[(ni, N)] = nmin
 
-    # queue of subproblems to solve starting with first node
-    queue = [((0,), 0)]
-
-    while len(queue) > 0:
-        visited, previous_node = queue.pop(0) # O(n) since whole list is shifted by 1
-
-        # Get the previous best distance
-        prev_dist, _ = dp_dict[(visited, previous_node)] # O(1) access
-
-        # Create a set of nodes to visit
-        to_visit = set_of_nodes.difference(set(visited)) # Difference s - t = O(len(s)) average case
-
-        for node in to_visit:
-            # Mark each node in to_visit as visited
-            new_visited = tuple(sorted(list(visited) + [node]))
-
-            new_dist = (prev_dist + distance_matrix[previous_node][node])
-
-            if (new_visited, node) not in dp_dict:
-                dp_dict[(new_visited, node)] = (new_dist, previous_node)
-                queue += [(new_visited, node)]
-            
-            elif new_dist < dp_dict[(new_visited, node)][0]:
-                dp_dict[(new_visited, node)] = (new_dist, previous_node)
-
-    # Solve backward through stored solutions of subproblems
-    # Find all prenultimate subproblem and store them in dict
-    node_set = tuple(range(n))
-    penultimate_path_dict = dict((_visited, previous) for _visited, previous in dp_dict.items() if _visited[0] == node_set)
-
-    path_keys = list(penultimate_path_dict.keys())
-
-    total_dist = [
-        penultimate_path_dict[path][0] + distance_matrix[path[1]][0]
-        for path in penultimate_path_dict
-    ]
-    idx, distance = min(enumerate(total_dist), key=lambda x: x[1])
-
-    path_key = path_keys[idx]
-    _, penultimate_node = path_key
-    _, pre_penultimate_node = dp_dict[path_key]
-
-    final_path = [penultimate_node]
-    # Remove penultimate_node from set
-    node_set = tuple(sorted(set(node_set).difference({penultimate_node})))
-
-    while pre_penultimate_node is not None:
-        penultimate_node = pre_penultimate_node
-        path_key = (node_set, penultimate_node)
-        _, pre_penultimate_node = dp_dict[path_key]
-
-        final_path += [penultimate_node]
-        # Remove node from set of remaining nodes
-        node_set = tuple(sorted(set(node_set).difference({penultimate_node})))
-
-    final_path.append(0)
-
-    return [cities[i] for i in final_path], distance  
-
+        return min_cost
     
+    best_distance = distance(0, N)
+
+    # Get path with the minimum distance
+    ni = 0
+    route = [cities[0]]
+
+    while N:
+        ni = memo[(ni, N)]
+        route.append(cities[ni])
+        N = N.difference({ni})
+    return route, best_distance
 
     

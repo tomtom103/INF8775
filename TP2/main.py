@@ -32,8 +32,12 @@ def _plot_interactive(route: List[City], block: bool = False):
     plt.plot([x1, x2], [y1, y2], 'ro')
     plt.plot([x1, x2], [y1, y2], 'g')
     plt.draw()
-    plt.pause(0.07)
+    plt.pause(0.002)
     plt.show(block=block)
+
+def _print_route(cities: List[City], route: List[City]):
+    for city in route:
+        print(cities.index(city))
 
 def plot_route(route: List[City]) -> None:
     # Close the graph inside the animation
@@ -58,6 +62,8 @@ if __name__ == "__main__":
                         help="Affiche les indices des villes a visiter en commencant par 0 et finissant par 0")
     parser.add_argument("-t", action="store_true",
                         help="Affiche le temps d'execution en millisecondes")
+    parser.add_argument("-c", action="store_true",
+                        help="Affiche le cout")
     parser.add_argument("-plot", action="store_true",
                         help="Afficher un plot dynamique du chemain emprunte")
     args = parser.parse_args()
@@ -84,12 +90,14 @@ if __name__ == "__main__":
             plt.show(block=True)
         else:
             print("Cannot plot the route, matplotlib is not installed...")
-    elif bool(args.t):
+    
+    if bool(args.t):
         print(int(duration / 1000))
 
-    if bool(args.p):
-        # TODO
-        ...
+    if bool(args.c):
         print(cost)
+
+    if bool(args.p):
+        _print_route(cities, route)
+    else:
         print(len(route))
-        # print(route)
