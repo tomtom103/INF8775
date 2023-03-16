@@ -11,7 +11,7 @@ except ModuleNotFoundError:
     pass
 
 from algorithms.utils import read_cities, City
-from algorithms.algorithms import greedy, dynamic
+from algorithms.algorithms import greedy, dynamic, mst
 
 def _init_plot(cities: List[City], title: str) -> None:
     plt.ion()
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     algorithms = {
         'glouton': greedy,
         'progdyn': dynamic,
-        'approx': ...,
+        'approx': mst
     }
 
     parser = argparse.ArgumentParser()
