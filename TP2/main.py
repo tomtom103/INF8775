@@ -32,7 +32,7 @@ def _plot_interactive(route: List[City], block: bool = False):
     plt.plot([x1, x2], [y1, y2], 'ro')
     plt.plot([x1, x2], [y1, y2], 'g')
     plt.draw()
-    plt.pause(0.002)
+    plt.pause(0.5)
     plt.show(block=block)
 
 def _print_route(cities: List[City], route: List[City]):
@@ -76,7 +76,7 @@ if __name__ == "__main__":
         exit(1)
 
     num, cities = read_cities(Path(args.e))
-
+    print(cities)
     start = time.perf_counter_ns()
 
     route, cost = algorithms[algorithm](cities)

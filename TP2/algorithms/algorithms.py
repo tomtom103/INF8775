@@ -66,19 +66,6 @@ def dynamic(cities: List[City]) -> Tuple[List[City], float]:
 
 from typing import Tuple 
 import math
-
-def mst(cities: List[City]) -> Tuple[List[City], float]:
-
-    arr, cost = greedy(cities)
-    graph = array_to_tree(arr)
-    preorder = preorder_traversal(graph)
-
-    # for i, val in enumerate(arr):
-    #     if a[i] != val:
-    #         print(f"Greedy value: {val}, preorder value: {a[i]}")
-
-
-    return preorder, path_cost(preorder)
     
 
 class Node:
@@ -87,36 +74,102 @@ class Node:
         self.left = None
         self.right = None
 
-def array_to_tree(arr):
-    if not arr:
-        return None
-    mid = len(arr) // 2
-    node = Node(arr[mid])
-    node.left = array_to_tree(arr[:mid])
-    node.right = array_to_tree(arr[mid+1:])
+def insert(node, city, origin):
+    if node is None:
+        return Node(city)
+    if city.distance(origin) < node.data.distance(origin):
+        node.left = insert(node.left, city, origin)
+    else:
+        node.right = insert(node.right, city, origin)
     return node
 
-def preorder_traversal(root: Node):
-    if not root:
+def prim(cities: List[City]) -> Tuple[List[Tuple[int, int, float]], List[City]]:
+    # Initialize the distances matrix
+    n = len(cities)
+    distances = [[math.inf for j in range(n)] for i in range(n)]
+    for i in range(n):
+        for j in range(i+1, n):
+            distance = cities[i].distance(cities[j])
+            distances[i][j] = distance
+            distances[j][i] = distance
+    
+    # Initialize the set of unvisited vertices
+    unvisited = set(range(n))
+    
+    # Start with vertex 0
+    visited = set([0])
+    unvisited.remove(0)
+    
+    # Initialize the minimum spanning tree
+    mst = []
+    edge_count = 0
+    
+    # Loop until all vertices have been visited
+    while unvisited:
+        # Find the edge with minimum weight
+        min_distance = math.inf
+        for i in visited:
+            for j in unvisited:
+                if distances[i][j] < min_distance:
+                    min_distance = distances[i][j]
+                    u = i
+                    v = j
+        
+        # Add the new edge to the minimum spanning tree
+        mst.append((u, v, min_distance))
+        edge_count += 1
+        
+        # Mark the new vertex as visited
+        visited.add(v)
+        unvisited.remove(v)
+    
+    # Extract the cities from the minimum spanning tree
+    tree_cities = [cities[mst[i][0]] for i in range(len(mst))] + [cities[mst[i][1]] for i in range(len(mst))]
+    unique_cities = list(set(tree_cities))
+    
+    # Compute the path by following the edges in the minimum spanning tree
+    path = []
+    current_city = unique_cities[0]
+    path.append(current_city)
+    while len(path) < n:
+        for u, v, distance in mst:
+            if current_city in (cities[u], cities[v]):
+                if cities[u] == current_city:
+                    current_city = cities[v]
+                else:
+                    current_city = cities[u]
+                if current_city not in path:
+                    path.append(current_city)
+    
+    return mst, path
+
+
+def preorder_traversal(node):
+    if node is None:
         return []
+    result = [node]
+    result += preorder_traversal(node.left)
+    result += preorder_traversal(node.right)
 
-    stack = [root]
-    result = []
-
-    while stack:
-        node = stack.pop()
-        result.append(node.data)
-
-        if node.right:
-            stack.append(node.right)
-        if node.left:
-            stack.append(node.left)
-
+    cnt = []
+    for node in result : 
+        cnt.append(node.data)
+    
     return result
 
+def mst(cities: List[City]) -> Tuple[List[City], float]:
 
+    arr, cost = greedy(cities)
+    mst, path = prim(cities)
 
+    # Build a binary search tree from the unique cities
+    root = None
+    for city in path:
+        if root is None:
+            root = Node(city)
+        else:
+            insert(root, city, path[0])
 
-
-
-
+    preorder_traversal(root)
+    print(path_cost(path))
+    return path, path_cost(path)
