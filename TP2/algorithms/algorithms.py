@@ -1,4 +1,5 @@
 import functools
+import sys
 from typing import List, Tuple, Dict
 
 from .utils import (
@@ -13,9 +14,10 @@ def greedy(cities: List[City]):
     route = [cities[0]] # O(1)
 
     while unvisited: # O(n)
+        # min prend O(n)
         city = min(
             unvisited,
-            key=lambda x: x.distance(route[-1])
+            key=lambda x: x.distance(route[-1]) # O(1)
         )
         route.append(city) # O(1)
         unvisited.remove(city) # O(1) since it's a set
@@ -38,7 +40,7 @@ def dynamic(cities: List[City]) -> Tuple[List[City], float]:
     N = frozenset(range(1, len(distance_matrix))) # O(n)
     memo: Dict[Tuple, int] = {}
 
-    @functools.lru_cache(maxsize=1024)
+    @functools.lru_cache(maxsize=None)
     def distance(ni: int, N: frozenset) -> float:
         if not N:
             return distance_matrix[ni][0] # O(1)
@@ -86,12 +88,9 @@ def mst(cities : List[City]):
     G = distanceGraph(cities)
     traversal = preorder_traversal(prim(G))
     path = [cities[i] for i in traversal]
-    cost = path_cost(path)
-    return path, cost
+    return path, path_cost(path)
 
 def prim(G):
-    INF = 9999999
-
     # Accept an arbitrary N by N matrix
     N = len(G)
 
@@ -101,7 +100,7 @@ def prim(G):
     selected_node[0] = True
 
     while len(tree) < N - 1:
-        minimum = INF
+        minimum = sys.maxsize
         a = 0
         b = 0
         for m in range(N):
@@ -153,4 +152,3 @@ def dfs(nodes_dict, curr_data, visited):
                 if next_parent_data is not None:
                     return next_parent_data
     return None
-

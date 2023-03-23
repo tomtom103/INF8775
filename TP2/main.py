@@ -36,14 +36,17 @@ def _plot_interactive(route: List[City], block: bool = False):
     plt.show(block=block)
 
 def _print_route(cities: List[City], route: List[City]):
+    route.append(route[0])
     for city in route:
         print(cities.index(city))
+    route.pop(-1)
 
 def plot_route(route: List[City]) -> None:
     # Close the graph inside the animation
     route.append(route[0])
     for i in range(2, len(route)):
         _plot_interactive(route[:i], block=False)
+    route.pop(-1)
 
 if __name__ == "__main__":
     
@@ -92,7 +95,7 @@ if __name__ == "__main__":
             print("Cannot plot the route, matplotlib is not installed...")
     
     if bool(args.t):
-        print(int(duration / 1000))
+        print(duration / 1000)
 
     if bool(args.c):
         print(cost)
