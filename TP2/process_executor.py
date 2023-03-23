@@ -11,7 +11,7 @@ def run_algorithm(lock: threading.Lock, run: list) -> None:
     algo, size, script = run
     output = subprocess.run(script, shell=True, stdout=subprocess.PIPE, universal_newlines=True).stdout
 
-    formatted_output = ",".join(output.split("\n"))
+    formatted_output = ",".join(output.replace(" ", "").split("\n"))
     with lock:
         with open("result.csv", "a") as file:
             file.write(f"{algo},{size},{formatted_output}\n")
