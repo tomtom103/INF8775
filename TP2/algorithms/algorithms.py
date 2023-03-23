@@ -64,112 +64,93 @@ def dynamic(cities: List[City]) -> Tuple[List[City], float]:
     return route, best_distance
 
 
-from typing import Tuple 
-import math
-    
-
 class Node:
     def __init__(self, data):
         self.data = data
-        self.left = None
-        self.right = None
+        self.child_nodes = []
 
-def insert(node, city, origin):
-    if node is None:
-        return Node(city)
-    if city.distance(origin) < node.data.distance(origin):
-        node.left = insert(node.left, city, origin)
-    else:
-        node.right = insert(node.right, city, origin)
-    return node
-
-def prim(cities: List[City]) -> Tuple[List[Tuple[int, int, float]], List[City]]:
-    # Initialize the distances matrix
-    n = len(cities)
-    distances = [[math.inf for j in range(n)] for i in range(n)]
-    for i in range(n):
-        for j in range(i+1, n):
-            distance = cities[i].distance(cities[j])
-            distances[i][j] = distance
-            distances[j][i] = distance
-    
-    # Initialize the set of unvisited vertices
-    unvisited = set(range(n))
-    
-    # Start with vertex 0
-    visited = set([0])
-    unvisited.remove(0)
-    
-    # Initialize the minimum spanning tree
-    mst = []
-    edge_count = 0
-    
-    # Loop until all vertices have been visited
-    while unvisited:
-        # Find the edge with minimum weight
-        min_distance = math.inf
-        for i in visited:
-            for j in unvisited:
-                if distances[i][j] < min_distance:
-                    min_distance = distances[i][j]
-                    u = i
-                    v = j
-        
-        # Add the new edge to the minimum spanning tree
-        mst.append((u, v, min_distance))
-        edge_count += 1
-        
-        # Mark the new vertex as visited
-        visited.add(v)
-        unvisited.remove(v)
-    
-    # Extract the cities from the minimum spanning tree
-    tree_cities = [cities[mst[i][0]] for i in range(len(mst))] + [cities[mst[i][1]] for i in range(len(mst))]
-    unique_cities = list(set(tree_cities))
-    
-    # Compute the path by following the edges in the minimum spanning tree
-    path = []
-    current_city = unique_cities[0]
-    path.append(current_city)
-    while len(path) < n:
-        for u, v, distance in mst:
-            if current_city in (cities[u], cities[v]):
-                if cities[u] == current_city:
-                    current_city = cities[v]
-                else:
-                    current_city = cities[u]
-                if current_city not in path:
-                    path.append(current_city)
-    
-    return mst, path
-
-
-def preorder_traversal(node):
-    if node is None:
+def preorder_traversal(root):
+    if not root:
         return []
-    result = [node]
-    result += preorder_traversal(node.left)
-    result += preorder_traversal(node.right)
-
-    cnt = []
-    for node in result : 
-        cnt.append(node.data)
     
-    return result
+    # Add root node to traversal array
+    traversal = [root.data]
+    
+    # Traverse all child nodes recursively
+    for child in root.child_nodes:
+        traversal += preorder_traversal(child)
+    
+    return traversal
 
-def mst(cities: List[City]) -> Tuple[List[City], float]:
+def mst(cities : List[City]):
+    G = distanceGraph(cities)
+    traversal = preorder_traversal(prim(G))
+    path = [cities[i] for i in traversal]
+    cost = path_cost(path)
+    return path, cost
 
-    arr, cost = greedy(cities)
-    mst, path = prim(cities)
+def prim(G):
+    INF = 9999999
 
-    # Build a binary search tree from the unique cities
-    root = None
-    for city in path:
-        if root is None:
-            root = Node(city)
+    # Accept an arbitrary N by N matrix
+    N = len(G)
+
+    selected_node = [False] * N
+    tree = []
+
+    selected_node[0] = True
+
+    while len(tree) < N - 1:
+        minimum = INF
+        a = 0
+        b = 0
+        for m in range(N):
+            if selected_node[m]:
+                for n in range(N):
+                    if not selected_node[n] and G[m][n]:  
+                        # not in selected and there is an edge
+                        if minimum > G[m][n]:
+                            minimum = G[m][n]
+                            a = m
+                            b = n
+        selected_node[b] = True
+        # print(str(a) + "-" + str(b))
+        tree.append((a, b))
+
+    # Create a dictionary to store nodes with their data as key
+    nodes_dict = {}
+    
+    edges = tree
+    # Create all the nodes without their children
+    for edge in edges:
+        parent_data, child_data = edge
+        if parent_data not in nodes_dict:
+            parent_node = Node(parent_data)
+            nodes_dict[parent_data] = parent_node
         else:
-            insert(root, city, path[0])
+            parent_node = nodes_dict[parent_data]
+        
+        if child_data not in nodes_dict:
+            child_node = Node(child_data)
+            nodes_dict[child_data] = child_node
+        else:
+            child_node = nodes_dict[child_data]
+            
+        # Add child node to parent's child nodes
+        parent_node.child_nodes.append(child_node)
+    
+    # Return the root node
+    return nodes_dict[edges[0][0]]
 
-    preorder_traversal(root)
-    print(path_cost(path))
-    return path, path_cost(path)
+def dfs(nodes_dict, curr_data, visited):
+    for child_node in nodes_dict[curr_data].child_nodes:
+        if child_node.data not in visited:
+            visited.add(child_node.data)
+            if len(child_node.child_nodes) < len(nodes_dict) - 1:
+                return child_node.data
+            else:
+                next_parent_data = dfs(nodes_dict, child_node.data, visited)
+                if next_parent_data is not None:
+                    return next_parent_data
+    return None
+
