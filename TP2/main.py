@@ -68,7 +68,7 @@ if __name__ == "__main__":
     parser.add_argument("-c", action="store_true",
                         help="Affiche le cout")
     parser.add_argument("-plot", action="store_true",
-                        help="Afficher un plot dynamique du chemain emprunte")
+                        help="Afficher un plot dynamique du chemin emprunte")
     args = parser.parse_args()
 
     # Load file
@@ -79,10 +79,12 @@ if __name__ == "__main__":
         exit(1)
 
     num, cities = read_cities(Path(args.e))
+
+    func = algorithms[algorithm]
     
     start = time.perf_counter_ns()
 
-    route, cost = algorithms[algorithm](cities)
+    route, cost = func(cities)
 
     duration = time.perf_counter_ns() - start
 
@@ -95,7 +97,7 @@ if __name__ == "__main__":
             print("Cannot plot the route, matplotlib is not installed...")
     
     if bool(args.t):
-        print(duration / 1000)
+        print(duration / (10 ** 6))
 
     if bool(args.c):
         print(cost)

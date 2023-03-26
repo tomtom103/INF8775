@@ -1,6 +1,7 @@
-import functools
 import sys
-from typing import List, Tuple, Dict
+import functools
+from typing import List, Tuple, Dict, Any
+from dataclasses import dataclass, field
 
 from .utils import (
     City, 
@@ -66,12 +67,13 @@ def dynamic(cities: List[City]) -> Tuple[List[City], float]:
     return route, best_distance
 
 
+@dataclass(eq=False, frozen=True)
 class Node:
-    def __init__(self, data):
-        self.data = data
-        self.child_nodes = []
+    data: Any
+    children: List["Node"] = field(default_factory=lambda: list())
 
-def preorder_traversal(root):
+
+def preorder_traversal(root: Node) -> List[int]:
     if not root:
         return []
     
@@ -79,18 +81,22 @@ def preorder_traversal(root):
     traversal = [root.data]
     
     # Traverse all child nodes recursively
-    for child in root.child_nodes:
+    for child in root.children:
         traversal += preorder_traversal(child)
     
     return traversal
 
-def mst(cities : List[City]):
-    G = distanceGraph(cities)
-    traversal = preorder_traversal(prim(G))
+
+def mst(cities : List[City]) -> Tuple[List[City], float]:
+    distance_matrix = distanceGraph(cities)
+
+    traversal = preorder_traversal(prim(distance_matrix))
+
     path = [cities[i] for i in traversal]
     return path, path_cost(path)
 
-def prim(G):
+
+def prim(G: List[List[float]]) -> Node:
     # Accept an arbitrary N by N matrix
     N = len(G)
 
@@ -101,8 +107,7 @@ def prim(G):
 
     while len(tree) < N - 1:
         minimum = sys.maxsize
-        a = 0
-        b = 0
+        a, b = 0, 0
         for m in range(N):
             if selected_node[m]:
                 for n in range(N):
@@ -113,11 +118,10 @@ def prim(G):
                             a = m
                             b = n
         selected_node[b] = True
-        # print(str(a) + "-" + str(b))
         tree.append((a, b))
 
     # Create a dictionary to store nodes with their data as key
-    nodes_dict = {}
+    nodes_dict: Dict[Any, Node] = {}
     
     edges = tree
     # Create all the nodes without their children
@@ -136,19 +140,7 @@ def prim(G):
             child_node = nodes_dict[child_data]
             
         # Add child node to parent's child nodes
-        parent_node.child_nodes.append(child_node)
+        parent_node.children.append(child_node)
     
     # Return the root node
     return nodes_dict[edges[0][0]]
-
-def dfs(nodes_dict, curr_data, visited):
-    for child_node in nodes_dict[curr_data].child_nodes:
-        if child_node.data not in visited:
-            visited.add(child_node.data)
-            if len(child_node.child_nodes) < len(nodes_dict) - 1:
-                return child_node.data
-            else:
-                next_parent_data = dfs(nodes_dict, child_node.data, visited)
-                if next_parent_data is not None:
-                    return next_parent_data
-    return None
