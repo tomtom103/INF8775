@@ -1,14 +1,16 @@
+import math
 import pandas as pd
 import seaborn as sns
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
 
 pd.options.display.float_format = '{:.2f}'.format
 
 def test_puissance(df: pd.DataFrame) -> None:
-    res= df.pivot(index='size', columns='algo', values='time').reset_index()
+    pivoted = df.pivot(index='size', columns='algo', values='time').reset_index()
 
-    res = res[['size', 'approx', 'glouton']]
+    res = pivoted[['size', 'approx', 'glouton']]
 
     res['O(n^2)'] = res['size'].apply(lambda x: x ** 2)
     res['O(n^3)'] = res['size'].apply(lambda x: x ** 3)
@@ -29,6 +31,24 @@ def test_puissance(df: pd.DataFrame) -> None:
                         data=pd.melt(theory_data, ['size'], value_name='time'), ax=ax)
 
     plt.savefig("plots/test_puissance.png")
+
+    for algo in ['approx', 'glouton']:
+        log_taille = list(map(lambda v: math.log(v, 10), pivoted['size'].to_list()))
+        log_temps = list(map(lambda v: math.log(v, 10), pivoted[algo].to_list()))
+
+        X = np.array([np.array([e]) for e in log_taille])
+        y = np.array(log_temps)
+        
+        reg = LinearRegression().fit(X, y)
+        m = reg.coef_[0]
+        b = reg.intercept_
+        print(f"algo: {algo}")
+        print(f'score: {reg.score(X, y)}')
+        print(f'm: {m}')
+        print(f'b: {b}')
+        print(f'a: {10}')
+        print(f'y = {pow(10, b)} * x^{m}')
+
 
 def test_constantes(df: pd.DataFrame) -> None:
     res= df.pivot(index='size', columns='algo', values='time').reset_index()
