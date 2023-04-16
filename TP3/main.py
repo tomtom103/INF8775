@@ -1,9 +1,12 @@
-import numpy as np
 import argparse
 import math
+import atexit
+import time
+import signal
+
 from pathlib import Path
-from typing import List, Tuple, Iterator
-from dataclasses import dataclass
+from typing import List, Tuple, Iterator, Dict
+from dataclasses import dataclass, field
 
 from timeout import timeout
 
@@ -11,8 +14,8 @@ from timeout import timeout
 class Enclosure:
     id: int
     size: int
-    shape: List[Tuple[int, int]] # [(x, y), (x, y)]
-    neighbors: List[Tuple["Enclosure", int]] # Enclosure + weight to that enclosure
+    shape: List[Tuple[int, int]] = field(default_factory=list, hash=False, compare=False) # [(x, y), (x, y)]
+    neighbors: List[Tuple["Enclosure", int]] = field(default_factory=list, hash=False, compare=False) # Enclosure + weight to that enclosure
 
     def distance_to(self, other: "Enclosure") -> int:
         """
@@ -89,21 +92,31 @@ def populate_most_valuable_neighbors(enclosures: List[Enclosure], bonus_enclosur
 def read_file(file_path: Path, p: bool):
     with open(file_path, 'r') as file:
         n, m, k = map(int, file.readline().split())
-        print(f"n = {n}, m = {m}, k = {k}")
-
         bonus_enclosures = list(map(int, file.readline().split()))
-        print(f"Liste des enclos a placer pour bonus: {bonus_enclosures}")
-
         enclosure_sizes = [int(file.readline()) for _ in range(n)]
-        print(f"Taille des enclos: {enclosure_sizes}")
-
         enclosure_weights = [list(map(int, file.readline().split())) for _ in range(n)]
-        print(f"Matrice de poids: \n{np.matrix(enclosure_weights)}")
 
     return n, m, k, bonus_enclosures, enclosure_sizes, enclosure_weights
 
+
 def print_filled_bbox(bbox: List[List[int]]) -> None:
-    ...
+    data: Dict[int, List[Tuple[int, int]]] = {}
+
+    for i in range(len(bbox)):
+        for j in range(len(bbox[i])):
+            value = bbox[i][j]
+
+            if value in data:
+                data[value].append((i, j))
+            else:
+                data[value] = [(i, j)]
+
+    for _, coordinates in sorted(data.items()):
+        for x, y in coordinates:
+            print(f"{x} {y} ", end="")
+
+    print()
+
 
 class RanOutOfTimeException(Exception):
     """
@@ -111,26 +124,43 @@ class RanOutOfTimeException(Exception):
     """
 
 
-if __name__ == "__main__":
-    try:
-        with timeout(120, exception=RanOutOfTimeException):
-            parser = argparse.ArgumentParser()
-            parser.add_argument("-e", required=True, type=str,
-                                help="Chemin vers l'exemplaire")
-            parser.add_argument("-p", action="store_true",
-                                help="Affiche les indices des villes a visiter en commencant par 0 et finissant par 0")
-            args = parser.parse_args()
-            p = bool(args.p)
+_bbox = None
 
-            n, m, k, bonus_enclosures, enclosure_sizes, enclosure_weights = read_file(Path(str(args.e)), p)
-            
-            enclosures = [Enclosure(id=i, size=enclosure_sizes[i]) for i in range(n)]
-            bonus_enclosures = [enclosures[i] for i in bonus_enclosures]
-            enclosures = populate_most_valuable_neighbors(enclosures, bonus_enclosures, enclosure_weights)
 
-            for bbox in pack_enclosures(enclosures, bonus_enclosures, enclosure_weights):
-                print_filled_bbox(bbox)
-            
-    except RanOutOfTimeException:
-        # Out 2 minute timer ran out, maybe try printing our best score so far? Idk
-        pass
+def handle_exit(*args):
+    global _bbox
+
+    if _bbox is not None:
+        print("I'm printing one last time before exiting")
+        print_filled_bbox(_bbox)
+
+
+atexit.register(handle_exit)
+signal.signal(signal.SIGTERM, handle_exit)
+signal.signal(signal.SIGINT, handle_exit)
+
+
+try:
+    with timeout(120, exception=RanOutOfTimeException):
+        parser = argparse.ArgumentParser()
+        parser.add_argument("-e", required=True, type=str,
+                            help="Chemin vers l'exemplaire")
+        parser.add_argument("-p", action="store_true",
+                            help="Affiche les indices des villes a visiter en commencant par 0 et finissant par 0")
+        args = parser.parse_args()
+        p = bool(args.p)
+
+        n, m, k, bonus_enclosures, enclosure_sizes, enclosure_weights = read_file(Path(str(args.e)), p)
+        
+        enclosures = [Enclosure(id=i, size=enclosure_sizes[i]) for i in range(n)]
+        bonus_enclosures = [enclosures[i] for i in bonus_enclosures]
+        enclosures = populate_most_valuable_neighbors(enclosures, bonus_enclosures, enclosure_weights)
+
+        # gen = pack_enclosures(enclosures, bonus_enclosures, enclosure_weights)
+
+        # while _bbox := next(gen):
+        #     print_filled_bbox(_bbox)
+        
+except RanOutOfTimeException:
+    print("I ran out of time!!!")
+    pass
