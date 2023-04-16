@@ -1,9 +1,11 @@
 import numpy as np
 import argparse
 import math
+import itertools
 from pathlib import Path
-from typing import List, Tuple, Dict, Iterator
+from typing import List, Tuple, Dict, Iterator, Any
 from dataclasses import dataclass, field
+
 
 @dataclass
 class Enclosure:
@@ -11,6 +13,38 @@ class Enclosure:
     size: int
     shape: List[Tuple[int, int]] # [(x, y), (x, y)]
     neighbors: List[Tuple["Enclosure", int]] # Enclosure + weight to that enclosure
+
+    def distance_to(self, other: "Enclosure") -> int:
+        """
+        Returns the manhattan distance between the closest points
+        of this and another enclosure
+
+        This function runs in O(n log n) instead of O(n^2)
+        """
+        # Sort the points by x-coordinates
+        shape1 = sorted(self.shape, key=lambda point: point[0])
+        shape2 = sorted(other.shape, key=lambda point: point[0])
+
+        closest_1 = shape1[0]
+        closest_2 = shape2[0]
+        min_distance = abs(closest_1[0] - closest_2[0]) + abs(closest_1[1]  - closest_2[1])
+
+        # Iterate through the points in both shapes in parallel
+        i, j = 0, 0
+        while i < len(shape1) and j < len(shape2):
+            distance = abs(shape1[i][0] - shape2[j][0]) + abs(shape1[i][1], shape2[j][1])
+
+            if distance < min_distance:
+                closest_1 = shape1[i]
+                closest_2 = shape2[j]
+                min_distance = distance
+
+            if shape1[i][0] < shape2[j][0]:
+                i += 1
+            else:
+                j += 1
+
+        return min_distance
 
 
 def pack_enclosures(enclosures: List[Enclosure], bonus_enclosures: List[Enclosure], weights: List[List[int]]) -> Iterator[List[List[int]]]:
