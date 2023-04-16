@@ -1,11 +1,11 @@
 import numpy as np
 import argparse
 import math
-import itertools
 from pathlib import Path
-from typing import List, Tuple, Dict, Iterator, Any
-from dataclasses import dataclass, field
+from typing import List, Tuple, Iterator
+from dataclasses import dataclass
 
+from timeout import timeout
 
 @dataclass
 class Enclosure:
@@ -54,8 +54,12 @@ def pack_enclosures(enclosures: List[Enclosure], bonus_enclosures: List[Enclosur
     width = int(math.sqrt(total_area))
     height = int(math.ceil(total_area / width))
 
-    while True: # TODO: Replace with time constraints instead
+    current_score = - math.inf
+
+    while True:
         bbox = [[0 for _ in range(width)] for _ in range(height)]
+
+        estimated_score = 0
 
         for enclosure in enclosures:
             # TODO: Logic to place an enclosure within the box
@@ -65,8 +69,9 @@ def pack_enclosures(enclosures: List[Enclosure], bonus_enclosures: List[Enclosur
             for x, y in enclosure.shape:
                 bbox[y][x] = enclosure.id
 
-        # TODO: Instead of yielding every time, only yield when we found a solution that is better than the previous one
-        yield bbox
+        if estimated_score > current_score:
+            yield bbox
+
 
 def populate_most_valuable_neighbors(enclosures: List[Enclosure], bonus_enclosures: List[Enclosure], weights: List[List[int]]) -> List[Enclosure]:
     # TODO: Do shit here
@@ -97,23 +102,35 @@ def read_file(file_path: Path, p: bool):
 
     return n, m, k, bonus_enclosures, enclosure_sizes, enclosure_weights
 
+def print_filled_bbox(bbox: List[List[int]]) -> None:
+    ...
+
+class RanOutOfTimeException(Exception):
+    """
+    Exception thrown once we've ran out of time (execution time took too long)
+    """
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-e", required=True, type=str,
-                        help="Chemin vers l'exemplaire")
-    parser.add_argument("-p", action="store_true",
-                        help="Affiche les indices des villes a visiter en commencant par 0 et finissant par 0")
-    args = parser.parse_args()
+    try:
+        with timeout(120, exception=RanOutOfTimeException):
+            parser = argparse.ArgumentParser()
+            parser.add_argument("-e", required=True, type=str,
+                                help="Chemin vers l'exemplaire")
+            parser.add_argument("-p", action="store_true",
+                                help="Affiche les indices des villes a visiter en commencant par 0 et finissant par 0")
+            args = parser.parse_args()
+            p = bool(args.p)
 
-    p = bool(args.p)
+            n, m, k, bonus_enclosures, enclosure_sizes, enclosure_weights = read_file(Path(str(args.e)), p)
+            
+            enclosures = [Enclosure(id=i, size=enclosure_sizes[i]) for i in range(n)]
+            bonus_enclosures = [enclosures[i] for i in bonus_enclosures]
+            enclosures = populate_most_valuable_neighbors(enclosures, bonus_enclosures, enclosure_weights)
 
-    n, m, k, bonus_enclosures, enclosure_sizes, enclosure_weights = read_file(Path(str(args.e)), p)
-
-    enclosures = [Enclosure(id=i, size=enclosure_sizes[i]) for i in range(n)]
-    bonus_enclosures = [enclosures[i] for i in bonus_enclosures]
-
-    enclosures = populate_most_valuable_neighbors(enclosures, bonus_enclosures, enclosure_weights)
-
-    for bbox in pack_enclosures(enclosures, bonus_enclosures, enclosure_weights):
-        # TODO: Find a way to properly print the bbox on each iteration
-        ...
+            for bbox in pack_enclosures(enclosures, bonus_enclosures, enclosure_weights):
+                print_filled_bbox(bbox)
+            
+    except RanOutOfTimeException:
+        # Out 2 minute timer ran out, maybe try printing our best score so far? Idk
+        pass
