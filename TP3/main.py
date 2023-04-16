@@ -76,17 +76,57 @@ def pack_enclosures(enclosures: List[Enclosure], bonus_enclosures: List[Enclosur
             yield bbox
 
 
-def populate_most_valuable_neighbors(enclosures: List[Enclosure], bonus_enclosures: List[Enclosure], weights: List[List[int]]) -> List[Enclosure]:
-    # TODO: Do shit here
+# def populate_most_valuable_neighbors(enclosures: List[Enclosure], bonus_enclosures: List[Enclosure], weights: List[List[int]]) -> List[Enclosure]:
+#     # TODO: Do shit here
+
+#     for enclosure in enclosures:
+#         # TODO: Figure out how to populate the neighbors according to weights and bonus enclosures that need to be together
+#         # We could probably want some kind of heuristic here that tells us which enclosures absolutely need to be next to eachother
+#         # If we have a score of like 30 vs 300, the 300 one obviously takes priority
+#         enclosure.neighbors = []
+
+#     # Return all enclosures with a populated list of neighbors (IMPORTANT)
+#     return enclosures
+
+def populate_most_valuable_neighbors(enclosures: List[Enclosure], bonus_enclosures: List[Enclosure], weights: List[List[int]], num_neighbors: int = 3) -> List[Enclosure]:
+    
+    def get_bonus_attraction(e1: Enclosure, e2: Enclosure, k: int) -> int:
+        # Check if both enclosures are in the bonus list
+        # If so we get kˆ2 as the bonus, otherwise no bonus
+        if e1 in bonus_enclosures and e2 in bonus_enclosures:
+            return k**2
+        return 0
 
     for enclosure in enclosures:
-        # TODO: Figure out how to populate the neighbors according to weights and bonus enclosures that need to be together
-        # We could probably want some kind of heuristic here that tells us which enclosures absolutely need to be next to eachother
-        # If we have a score of like 30 vs 300, the 300 one obviously takes priority
-        enclosure.neighbors = []
+        # This is to keep a list of all the possible neighbors 
+        neighbor_values = []
+        
+        for neighbor in enclosures:
+            # Skip current enclosure as a neighbor 
+            if enclosure == neighbor:
+                continue
+                
+            # Weight between current enclosure and its neighbor
+            weight = weights[enclosure.id][neighbor.id] + weights[neighbor.id][enclosure.id]
+            
+            # Bonus for current enclosure and neighbor
+            bonus_attraction = get_bonus_attraction(enclosure, neighbor, k)
+            
+            # Calculate sum(weight, attraction)
+            total_value = weight + bonus_attraction
+            
+            # Add neighbor and its total value to the neighbor_values list
+            neighbor_values.append((neighbor, total_value))
 
-    # Return all enclosures with a populated list of neighbors (IMPORTANT)
+        # Sort the neighbor_values list by the total value in descending order (higher value first)
+        neighbor_values.sort(key=lambda x: x[1], reverse=True)
+
+        # Assign the top num_neighbors most valuable neighbors to the current enclosure
+        enclosure.neighbors = [neighbor for neighbor, _ in neighbor_values[:num_neighbors]]
+
+    # Return the list of enclosures with their neighbors assigned
     return enclosures
+
 
 
 def read_file(file_path: Path, p: bool):
@@ -152,6 +192,8 @@ try:
 
         n, m, k, bonus_enclosures, enclosure_sizes, enclosure_weights = read_file(Path(str(args.e)), p)
         
+
+
         enclosures = [Enclosure(id=i, size=enclosure_sizes[i]) for i in range(n)]
         bonus_enclosures = [enclosures[i] for i in bonus_enclosures]
         enclosures = populate_most_valuable_neighbors(enclosures, bonus_enclosures, enclosure_weights)
