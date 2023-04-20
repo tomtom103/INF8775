@@ -152,15 +152,15 @@ for enclos in sol:
 # Évaluation de la solution
 
 #somme de tous les poids
-distances = [[9999 for _ in sol] for _ in sol]
+distances = [[99999 for _ in sol] for _ in sol]
 combs_enclos = combinations(range(len(sol)),2)
 for paire in combs_enclos:
     for start in sol[paire[0]]:
         for end in sol[paire[1]]:
-            lenght = distance(start[0], start[1], end[0], end[1])
-            if lenght < distances[paire[0]][paire[1]]:
-                distances[paire[0]][paire[1]] = lenght
-                distances[paire[1]][paire[0]] = lenght
+            length = distance(start[0], start[1], end[0], end[1])
+            if length < distances[paire[0]][paire[1]]:
+                distances[paire[0]][paire[1]] = length
+                distances[paire[1]][paire[0]] = length
 
 somme = 0
 for i, _ in enumerate(sol):
@@ -168,12 +168,13 @@ for i, _ in enumerate(sol):
         somme += poids[i][j]*distances[i][j]
 
 #vérifier la contrainte de distance
+print(theme)
 combs_theme = combinations(theme,2)
 bonus = m**2
 for paire in combs_theme:
     if distances[paire[0]][paire[1]] > k:
         bonus = 0
-        break;
+        break
 print("Votre solution est valide et a une valeur de", bonus - somme)
 
 

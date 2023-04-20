@@ -1,135 +1,193 @@
 import argparse
 import math
+import os
+import random
+import itertools
+import dataclasses
+import multiprocessing
 import atexit
-import time
 import signal
+from multiprocessing.connection import Connection
+from threading import Timer
 
 from pathlib import Path
-from typing import List, Tuple, Iterator, Dict
-from dataclasses import dataclass, field
+from typing import List, Tuple
 
-from timeout import timeout
+import itertools
+from typing import List, Tuple
 
-@dataclass
+@dataclasses.dataclass
 class Enclosure:
     id: int
     size: int
-    shape: List[Tuple[int, int]] = field(default_factory=list, hash=False, compare=False) # [(x, y), (x, y)]
-    neighbors: List[Tuple["Enclosure", int]] = field(default_factory=list, hash=False, compare=False) # Enclosure + weight to that enclosure
+    shape: List[Tuple[int, int]] = dataclasses.field(default_factory=list, hash=False, compare=False) # [(x, y), (x, y)]
 
-    def distance_to(self, other: "Enclosure") -> int:
-        """
-        Returns the manhattan distance between the closest points
-        of this and another enclosure
-
-        This function runs in O(n log n) instead of O(n^2)
-        """
-        # Sort the points by x-coordinates
-        shape1 = sorted(self.shape, key=lambda point: point[0])
-        shape2 = sorted(other.shape, key=lambda point: point[0])
-
-        closest_1 = shape1[0]
-        closest_2 = shape2[0]
-        min_distance = abs(closest_1[0] - closest_2[0]) + abs(closest_1[1]  - closest_2[1])
-
-        # Iterate through the points in both shapes in parallel
-        i, j = 0, 0
-        while i < len(shape1) and j < len(shape2):
-            distance = abs(shape1[i][0] - shape2[j][0]) + abs(shape1[i][1], shape2[j][1])
-
-            if distance < min_distance:
-                closest_1 = shape1[i]
-                closest_2 = shape2[j]
-                min_distance = distance
-
-            if shape1[i][0] < shape2[j][0]:
-                i += 1
-            else:
-                j += 1
-
-        return min_distance
-
-
-def pack_enclosures(enclosures: List[Enclosure], bonus_enclosures: List[Enclosure], weights: List[List[int]]) -> Iterator[List[List[int]]]:
-    total_area = sum([enclosure.size for enclosure in enclosures])
-
-    # Calculate the width and height of the bounding box
-    width = int(math.sqrt(total_area))
-    height = int(math.ceil(total_area / width))
-
-    current_score = - math.inf
-
-    while True:
-        bbox = [[0 for _ in range(width)] for _ in range(height)]
-
-        estimated_score = 0
-
-        for enclosure in enclosures:
-            # TODO: Logic to place an enclosure within the box
-            ...
-
-            # assert len(enclosure.shape) == enclosure.size
-            for x, y in enclosure.shape:
-                bbox[y][x] = enclosure.id
-
-        if estimated_score > current_score:
-            yield bbox
-
-
-# def populate_most_valuable_neighbors(enclosures: List[Enclosure], bonus_enclosures: List[Enclosure], weights: List[List[int]]) -> List[Enclosure]:
-#     # TODO: Do shit here
-
-#     for enclosure in enclosures:
-#         # TODO: Figure out how to populate the neighbors according to weights and bonus enclosures that need to be together
-#         # We could probably want some kind of heuristic here that tells us which enclosures absolutely need to be next to eachother
-#         # If we have a score of like 30 vs 300, the 300 one obviously takes priority
-#         enclosure.neighbors = []
-
-#     # Return all enclosures with a populated list of neighbors (IMPORTANT)
-#     return enclosures
-
-def populate_most_valuable_neighbors(enclosures: List[Enclosure], bonus_enclosures: List[Enclosure], weights: List[List[int]], num_neighbors: int = 3) -> List[Enclosure]:
+    def __hash__(self) -> int:
+        return hash((self.id, self.size))
     
-    def get_bonus_attraction(e1: Enclosure, e2: Enclosure, k: int) -> int:
-        # Check if both enclosures are in the bonus list
-        # If so we get kˆ2 as the bonus, otherwise no bonus
-        if e1 in bonus_enclosures and e2 in bonus_enclosures:
-            return k**2
-        return 0
-
-    for enclosure in enclosures:
-        # This is to keep a list of all the possible neighbors 
-        neighbor_values = []
+    def __eq__(self, other: "Enclosure") -> bool:
+        if not isinstance(other, self.__class__):
+            return False
         
-        for neighbor in enclosures:
-            # Skip current enclosure as a neighbor 
-            if enclosure == neighbor:
-                continue
+        return all((
+            self.id == other.id,
+            self.size == other.size,
+            set(self.shape) == set(other.shape)
+        ))
+    
+    def __str__(self) -> str:
+        return f"<Enclosure id={self.id}, size={self.size}, shape={str(self.shape)}>"
+
+
+def generate_spiral_grid(enclosures: List[Enclosure]) -> List[List[Tuple[int, int]]]:
+    sizes = [(enclosure.id, enclosure.size) for enclosure in enclosures]
+    unrolled_enclosures = []
+    for id, size in sizes:
+        unrolled_enclosures.extend([id] * size)
+
+    n = len(unrolled_enclosures)
+    # Calculate dimensions of the _bbox
+    rows = cols = math.ceil(math.sqrt(n))
+
+    # Initialize the _bbox
+    solution = [[] for _ in range(len(enclosures))]
+
+    # Start from the center
+    row, col = rows // 2, cols // 2
+
+    directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]  # right, down, left, up
+    direction_index = 0
+    steps_in_current_direction = 1
+    steps_taken = 0
+
+    for id in unrolled_enclosures:
+        solution[id].append((row, col))
+
+        if steps_taken == steps_in_current_direction:
+            direction_index = (direction_index + 1) % 4
+            steps_taken = 0
+            if direction_index in (0, 2):
+                steps_in_current_direction += 1
+
+        next_row, next_col = row + directions[direction_index][0], col + directions[direction_index][1]
+        
+        while not (0 <= next_row < rows and 0 <= next_col < cols):
+            direction_index = (direction_index + 1) % 4
+            next_row, next_col = row + directions[direction_index][0], col + directions[direction_index][1]
+            if direction_index in (0, 2):
+                steps_in_current_direction += 1
                 
-            # Weight between current enclosure and its neighbor
-            weight = weights[enclosure.id][neighbor.id] + weights[neighbor.id][enclosure.id]
-            
-            # Bonus for current enclosure and neighbor
-            bonus_attraction = get_bonus_attraction(enclosure, neighbor, k)
-            
-            # Calculate sum(weight, attraction)
-            total_value = weight + bonus_attraction
-            
-            # Add neighbor and its total value to the neighbor_values list
-            neighbor_values.append((neighbor, total_value))
+        row, col = next_row, next_col
+        steps_taken += 1
 
-        # Sort the neighbor_values list by the total value in descending order (higher value first)
-        neighbor_values.sort(key=lambda x: x[1], reverse=True)
-
-        # Assign the top num_neighbors most valuable neighbors to the current enclosure
-        enclosure.neighbors = [neighbor for neighbor, _ in neighbor_values[:num_neighbors]]
-
-    # Return the list of enclosures with their neighbors assigned
-    return enclosures
+    return solution
 
 
+def swap_random_enclosures(enclosures: List[Enclosure]) -> None:
+    idx1, idx2 = random.sample(range(len(enclosures)), 2)
+    enclosures[idx1], enclosures[idx2] = enclosures[idx2], enclosures[idx1]
 
-def read_file(file_path: Path, p: bool):
+
+def distance(x1: int, y1: int, x2: int, y2: int) -> int:
+    return abs(x2 - x1) + abs(y2 - y1)
+
+
+def total_score(
+    solution: List[List[Tuple[int, int]]], 
+    weights: List[List[int]],
+    bonus_enclosures: List[int],
+    k: int,
+) -> int:
+    distances = [[99999 for _ in solution] for _  in solution]
+    for zero, one in itertools.combinations(range(len(solution)), 2):
+        for x_start, y_start in solution[zero]:
+            for x_end, y_end in solution[one]:
+                length = distance(x_start, y_start, x_end, y_end)
+                if length < distances[zero][one]:
+                    distances[zero][one] = length
+                    distances[one][zero] = length
+
+    somme = 0
+    for i in range(len(solution)):
+        for j in range(len(solution)):
+            somme += weights[i][j] * distances[i][j]
+
+    bonus = len(bonus_enclosures) ** 2
+    for paire in itertools.combinations(bonus_enclosures, 2):
+        if distances[paire[0]][paire[1]] > k:
+            bonus = 0
+            break
+
+    return bonus - somme
+
+
+def simulated_annealing(
+    enclosures: List[Enclosure],
+    bonus_enclosures: List[int],
+    weights: List[List[int]],
+    k: int,
+    initial_temperature: float,
+    cooling_rate: float,
+    send_end: Connection
+) -> None:
+    best_order = enclosures[:]
+    best_score = total_score(generate_spiral_grid(enclosures), weights, bonus_enclosures, k)
+
+    current_temperature = initial_temperature
+
+    while current_temperature > 1:
+        new_order = enclosures[:]
+        swap_random_enclosures(new_order)
+
+
+        current_score = total_score(generate_spiral_grid(enclosures), weights, bonus_enclosures, k)
+        new_score = total_score(generate_spiral_grid(new_order), weights, bonus_enclosures, k)
+        score_diff = new_score - current_score
+
+        if score_diff < 0 or math.exp(-score_diff / current_temperature) > random.random():
+            enclosures = new_order
+            current_score = new_score
+        
+        if current_score > best_score:
+            best_order = enclosures[:]
+            best_score = current_score
+
+        current_temperature *= cooling_rate
+    
+    send_end.send((best_order, best_score))
+
+def simulated_annealing_parallel(
+    enclosures: List[Enclosure],
+    bonus_enclosures: List[int],
+    weights: List[List[int]],
+    k: int,
+    initial_temperature: float,
+    cooling_rate: float,
+    num_processes: int,
+) -> Tuple[List[Enclosure], int]:
+    processes: List[multiprocessing.Process] = []
+    pipe_list: List[Connection] = []
+    for _ in range(num_processes):
+        recv_end, send_end = multiprocessing.Pipe(False)
+        p = multiprocessing.Process(
+            target=simulated_annealing,
+            args=(enclosures, bonus_enclosures, weights, k, initial_temperature, cooling_rate, send_end)
+        )
+        processes.append(p)
+        pipe_list.append(recv_end)
+        p.daemon = True
+        p.start()
+
+    for p in processes:
+        p.join()
+
+    results_list = [x.recv() for x in pipe_list]
+    best_result = max(results_list, key=lambda x: x[1])
+
+    return best_result
+
+
+def read_file(file_path: Path):
     with open(file_path, 'r') as file:
         n, m, k = map(int, file.readline().split())
         bonus_enclosures = list(map(int, file.readline().split()))
@@ -139,23 +197,26 @@ def read_file(file_path: Path, p: bool):
     return n, m, k, bonus_enclosures, enclosure_sizes, enclosure_weights
 
 
-def print_filled_bbox(bbox: List[List[int]]) -> None:
-    data: Dict[int, List[Tuple[int, int]]] = {}
-
-    for i in range(len(bbox)):
-        for j in range(len(bbox[i])):
-            value = bbox[i][j]
-
-            if value in data:
-                data[value].append((i, j))
-            else:
-                data[value] = [(i, j)]
-
-    for _, coordinates in sorted(data.items()):
+def print_solution(solution: List[List[Tuple[int, int]]]):
+    for coordinates in solution:
         for x, y in coordinates:
             print(f"{x} {y} ", end="")
-
+        print()
     print()
+
+
+def handle_exit(*args):
+    global best_order
+
+    if best_order:
+        solution = generate_spiral_grid(best_order)
+        print_solution(solution)
+        os._exit(0)
+
+
+atexit.register(handle_exit)
+signal.signal(signal.SIGINT, handle_exit)
+signal.signal(signal.SIGTERM, handle_exit)
 
 
 class RanOutOfTimeException(Exception):
@@ -163,46 +224,41 @@ class RanOutOfTimeException(Exception):
     Exception thrown once we've ran out of time (execution time took too long)
     """
 
+if __name__ == "__main__":
+    # Start 120 second timer
+    Timer(120, os.kill, [os.getpid(), signal.SIGTERM]).start()
 
-_bbox = None
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-e", required=True, type=str,
+                        help="Chemin vers l'exemplaire")
+    parser.add_argument("-p", action="store_true",
+                        help="Affiche les indices des villes a visiter en commencant par 0 et finissant par 0")
+    args = parser.parse_args()
+    p = bool(args.p)
 
+    n, m, k, bonus_enclosures, enclosure_sizes, enclosure_weights = read_file(Path(str(args.e)))
 
-def handle_exit(*args):
-    global _bbox
+    enclosures = [Enclosure(id=i, size=enclosure_sizes[i]) for i in range(n)]
 
-    if _bbox is not None:
-        print("I'm printing one last time before exiting")
-        print_filled_bbox(_bbox)
+    best_order = enclosures[:]
+    solution = generate_spiral_grid(best_order)
+    best_score = total_score(solution, enclosure_weights, bonus_enclosures, k)
+    if p:
+        print_solution(solution)
 
-
-atexit.register(handle_exit)
-signal.signal(signal.SIGTERM, handle_exit)
-signal.signal(signal.SIGINT, handle_exit)
-
-
-try:
-    with timeout(120, exception=RanOutOfTimeException):
-        parser = argparse.ArgumentParser()
-        parser.add_argument("-e", required=True, type=str,
-                            help="Chemin vers l'exemplaire")
-        parser.add_argument("-p", action="store_true",
-                            help="Affiche les indices des villes a visiter en commencant par 0 et finissant par 0")
-        args = parser.parse_args()
-        p = bool(args.p)
-
-        n, m, k, bonus_enclosures, enclosure_sizes, enclosure_weights = read_file(Path(str(args.e)), p)
-        
-
-
-        enclosures = [Enclosure(id=i, size=enclosure_sizes[i]) for i in range(n)]
-        bonus_enclosures = [enclosures[i] for i in bonus_enclosures]
-        enclosures = populate_most_valuable_neighbors(enclosures, bonus_enclosures, enclosure_weights)
-
-        # gen = pack_enclosures(enclosures, bonus_enclosures, enclosure_weights)
-
-        # while _bbox := next(gen):
-        #     print_filled_bbox(_bbox)
-        
-except RanOutOfTimeException:
-    print("I ran out of time!!!")
-    pass
+    while True:
+        new_order, new_score = simulated_annealing_parallel(
+            best_order,
+            bonus_enclosures,
+            enclosure_weights,
+            k,
+            initial_temperature=500000,
+            cooling_rate=0.95,
+            num_processes=multiprocessing.cpu_count(),
+        )
+        if new_score > best_score:
+            best_order = new_order
+            best_score = new_score
+            if p:
+                solution = generate_spiral_grid(best_order)
+                print_solution(solution)
