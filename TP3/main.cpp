@@ -2,6 +2,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
+#include <deque>
 #include <iostream>
 #include <iterator>
 #include <list>
@@ -50,7 +51,13 @@ vector<vector<int>> enclosure_weights;
 mutex enclosure_weights_mutex;
 bool print_path = false;
 
-
+size_t hash_enclosures(const vector<Enclosure>& enclosures) {
+    size_t seed = enclosures.size();
+    for (const auto& enclosure : enclosures) {
+        seed ^= enclosure.id + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    }
+    return seed;
+}
 
 vector<vector<pair<int, int>>> generate_spiral_grid(const vector<Enclosure>& enclosures) {
     vector<pair<int, int>> sizes;
@@ -112,32 +119,54 @@ vector<vector<pair<int, int>>> generate_spiral_grid(const vector<Enclosure>& enc
 }
 
 
-vector<Enclosure> swap_random_enclosures(vector<Enclosure>& enclosures) {
-    random_device rd;
-    mt19937 gen(rd());
+vector<Enclosure> swap_random_enclosures(vector<Enclosure>& enclosures, int neighborhood_type, unordered_set<size_t>& tabu_set, size_t max_tabu_size) {
+    unsigned seed = chrono::system_clock::now().time_since_epoch().count();
+    default_random_engine gen(seed);
 
-    uniform_int_distribution<> operation_dist(0, 1);
-    int operation = operation_dist(gen); // 0: swap, 1: rotate
+    vector<Enclosure> new_solution;
 
-    if (operation == 0) {
-        uniform_int_distribution<> swap_dist(0, enclosures.size() - 1);
-        int idx1 = swap_dist(gen);
-        int idx2 = swap_dist(gen);
+    size_t new_hash;
+    do {
+        new_solution = enclosures;
+        if (neighborhood_type == 0) {  // Single enclosure swap
+            uniform_int_distribution<> swap_dist(0, enclosures.size() - 1);
+            int idx1 = swap_dist(gen);
+            int idx2 = swap_dist(gen);
 
-        swap(enclosures[idx1], enclosures[idx2]);
+            swap(new_solution[idx1], new_solution[idx2]);
 
-    } else if (operation == 1) {
-        uniform_int_distribution<> rotate_dist(0, 1);
-        bool rotate_left = rotate_dist(gen);
+        } else if (neighborhood_type == 1) {  // Adjacent enclosures swap
+            uniform_int_distribution<> swap_dist(0, enclosures.size() - 2);
+            int idx1 = swap_dist(gen);
 
-        if (rotate_left) {
-            rotate(enclosures.begin(), enclosures.begin() + 1, enclosures.end());
-        } else {
-            rotate(enclosures.rbegin(), enclosures.rbegin() + 1, enclosures.rend());
+            swap(new_solution[idx1], new_solution[idx1 + 1]);
+
+        } else if (neighborhood_type == 2) {  // Swapping pairs of enclosures
+            uniform_int_distribution<> swap_dist(0, enclosures.size() - 2);
+            int idx1 = swap_dist(gen);
+            int idx2 = swap_dist(gen);
+
+            swap(new_solution[idx1], new_solution[idx2]);
+            swap(new_solution[idx1 + 1], new_solution[idx2 + 1]);
+
+        } else if (neighborhood_type == 3) {  // Reversing subsequence of enclosures
+            uniform_int_distribution<> start_dist(0, enclosures.size() - 2);
+            int start = start_dist(gen);
+            uniform_int_distribution<> length_dist(2, enclosures.size() - start);
+            int length = length_dist(gen);
+
+            reverse(new_solution.begin() + start, new_solution.begin() + start + length);
         }
-    }
+        new_hash = hash_enclosures(new_solution);
+    } while (tabu_set.count(new_hash) > 0);
 
-    return enclosures;
+    // Update the tabu list
+    if (tabu_set.size() >= max_tabu_size) {
+        tabu_set.erase(tabu_set.begin());
+    }
+    tabu_set.insert(new_hash);
+
+    return new_solution;
 }
 
 inline int distance(int x1, int y1, int x2, int y2) {
@@ -212,8 +241,12 @@ pair<vector<Enclosure>, long long> late_acceptance_hill_climbing(
             unsigned seed = chrono::system_clock::now().time_since_epoch().count();
             default_random_engine generator(seed);
 
+            unordered_set<size_t> tabu_set;
+            int max_tabu_size = 10;
+
             for (int iteration = 0; iteration < max_iterations; ++iteration) {
-                vector<Enclosure> new_solution = swap_random_enclosures(current_solution);
+                int neighborhood_type = iteration % 4;
+                vector<Enclosure> new_solution = swap_random_enclosures(current_solution, neighborhood_type, tabu_set, max_tabu_size);
                 long long new_score = total_score(generate_spiral_grid(new_solution), weights, bonus_enclosures, k);
 
                 int history_index = iteration % look_back_steps;
@@ -242,66 +275,6 @@ pair<vector<Enclosure>, long long> late_acceptance_hill_climbing(
     });
 }
 
-pair<vector<Enclosure>, long long> simulated_annealing_parallel(
-    vector<Enclosure>& enclosures, 
-    vector<int>& bonus_enclosures, 
-    vector<vector<int>>& weights, 
-    int k, 
-    double initial_temperature, 
-    double cooling_rate
-) {
-    int num_threads = thread::hardware_concurrency();
-    if (num_threads == 0) {
-        num_threads = 4; // Default number of threads
-    }
-    vector<thread> threads(num_threads);
-    vector<pair<vector<Enclosure>, int>> results(num_threads);
-
-    for (int i = 0; i < num_threads; ++i) {
-        threads[i] = thread([&results, i, &enclosures, &bonus_enclosures, &weights, k, initial_temperature, cooling_rate]() {
-            vector<Enclosure> best_order(enclosures.size());
-            copy(enclosures.begin(), enclosures.end(), best_order.begin());
-            long long best_score = total_score(generate_spiral_grid(enclosures), weights, bonus_enclosures, k);
-
-            double current_temperature = initial_temperature;
-
-            random_device rd;
-            mt19937 gen(rd());
-            uniform_real_distribution<double> dist(0.0, 1.0);
-
-            while (current_temperature > 1) {
-                auto new_order = enclosures; // Add missing semicolon
-                new_order = swap_random_enclosures(new_order);
-
-                long long current_score = total_score(generate_spiral_grid(enclosures), weights, bonus_enclosures, k);
-                long long new_score = total_score(generate_spiral_grid(new_order), weights, bonus_enclosures, k);
-                long long score_diff = new_score - current_score;
-
-                if (score_diff < 0 || exp(-score_diff / current_temperature) > dist(gen)) {
-                    // enclosures = new_order; // Remove this line as enclosures is const
-                    current_score = new_score;
-                }
-
-                if (current_score > best_score) {
-                    best_order = new_order; // Assign new_order to best_order instead of enclosures
-                    best_score = current_score;
-                }
-
-                current_temperature *= cooling_rate;
-            }
-
-            results[i] = make_pair(best_order, best_score);
-        });
-    }
-
-    for (auto& thread : threads) {
-        thread.join();
-    }
-
-    return *max_element(results.begin(), results.end(), [](const auto& lhs, const auto& rhs) {
-        return lhs.second < rhs.second;
-    });
-}
 
 void print_solution(const vector<vector<pair<int, int>>>& solution) {
     for (const auto& coordinates : solution) {
@@ -397,7 +370,6 @@ int main(int argc, char* argv[]) {
     }
 
     while (true) {
-        // auto [new_order, new_score] = simulated_annealing_parallel(best_order, bonus_enclosures, enclosure_weights, k, 500000, 0.99);
         auto [new_order, new_score] = late_acceptance_hill_climbing(best_order, bonus_enclosures, enclosure_weights, k, 500, 5000);
         if (new_score > best_score) {
             unique_lock<mutex> lock(best_order_mutex);
