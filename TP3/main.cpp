@@ -18,6 +18,7 @@
 #include <vector>
 #include <fstream>
 #include <random>
+#include <omp.h>
 
 using namespace std;
 
@@ -120,8 +121,7 @@ vector<vector<pair<int, int>>> generate_spiral_grid(const vector<Enclosure>& enc
 
 
 vector<Enclosure> swap_random_enclosures(vector<Enclosure>& enclosures, int neighborhood_type, unordered_set<size_t>& tabu_set, size_t max_tabu_size) {
-    unsigned seed = chrono::system_clock::now().time_since_epoch().count();
-    default_random_engine gen(seed);
+    mt19937 gen(random_device{}());
 
     vector<Enclosure> new_solution;
 
@@ -175,6 +175,8 @@ inline int distance(int x1, int y1, int x2, int y2) {
 
 long long total_score(const vector<vector<pair<int, int>>>& solution, const vector<vector<int>>& weights, const vector<int>& bonus_enclosures, int k) {
     vector<vector<int>> distances(solution.size(), vector<int>(solution.size(), 99999));
+
+    #pragma omp parallel for
     for (size_t zero = 0; zero < solution.size(); ++zero) {
         for (size_t one = zero + 1; one < solution.size(); ++one) {
             for (const auto& [x_start, y_start] : solution[zero]) {
@@ -224,50 +226,44 @@ pair<vector<Enclosure>, long long> late_acceptance_hill_climbing(
     if (num_threads == 0) {
         num_threads = 4; // Default number of threads
     }
-    vector<thread> threads(num_threads);
+    // vector<thread> threads(num_threads);
     vector<pair<vector<Enclosure>, int>> results(num_threads);
 
+    # pragma omp parallel for
     for (int i = 0; i < num_threads; ++i) {
-        threads[i] = thread([&results, i, &enclosures, &bonus_enclosures, &weights, k, look_back_steps, max_iterations]() {
-            vector<Enclosure> new_best_order = enclosures;
-            long long best_score = total_score(generate_spiral_grid(enclosures), weights, bonus_enclosures, k);
+        // threads[i] = thread([&results, i, &enclosures, &bonus_enclosures, &weights, k, look_back_steps, max_iterations]() {
+        vector<Enclosure> new_best_order = enclosures;
+        long long best_score = total_score(generate_spiral_grid(enclosures), weights, bonus_enclosures, k);
 
-            vector<Enclosure> current_solution = enclosures;
-            long long current_score = best_score;
+        vector<Enclosure> current_solution = enclosures;
+        long long current_score = best_score;
 
-            vector<long long> scores_history(look_back_steps, current_score);
+        vector<long long> scores_history(look_back_steps, current_score);
 
-            // Initialize random number generator
-            unsigned seed = chrono::system_clock::now().time_since_epoch().count();
-            default_random_engine generator(seed);
+        unordered_set<size_t> tabu_set;
+        int max_tabu_size = 10;
 
-            unordered_set<size_t> tabu_set;
-            int max_tabu_size = 10;
+        for (int iteration = 0; iteration < max_iterations; ++iteration) {
+            int neighborhood_type = iteration % 4;
+            vector<Enclosure> new_solution = swap_random_enclosures(current_solution, neighborhood_type, tabu_set, max_tabu_size);
+            long long new_score = total_score(generate_spiral_grid(new_solution), weights, bonus_enclosures, k);
 
-            for (int iteration = 0; iteration < max_iterations; ++iteration) {
-                int neighborhood_type = iteration % 4;
-                vector<Enclosure> new_solution = swap_random_enclosures(current_solution, neighborhood_type, tabu_set, max_tabu_size);
-                long long new_score = total_score(generate_spiral_grid(new_solution), weights, bonus_enclosures, k);
-
-                int history_index = iteration % look_back_steps;
-                if (new_score >= scores_history[history_index]) {
-                    current_solution = new_solution;
-                    current_score = new_score;
-                    scores_history[history_index] = new_score;
-                }
-
-                if (current_score > best_score) {
-                    new_best_order = current_solution;
-                    best_score = current_score;
-                }
+            int history_index = iteration % look_back_steps;
+            if (new_score >= scores_history[history_index]) {
+                current_solution = new_solution;
+                current_score = new_score;
+                scores_history[history_index] = new_score;
             }
 
+            if (current_score > best_score) {
+                new_best_order = current_solution;
+                best_score = current_score;
+            }
+        }
+        # pragma omp critical
+        {
             results[i] = make_pair(new_best_order, best_score);
-        });
-    }
-
-    for (auto& thread : threads) {
-        thread.join();
+        }
     }
 
     return *max_element(results.begin(), results.end(), [](const auto& lhs, const auto& rhs) {
@@ -370,7 +366,7 @@ int main(int argc, char* argv[]) {
     }
 
     while (true) {
-        auto [new_order, new_score] = late_acceptance_hill_climbing(best_order, bonus_enclosures, enclosure_weights, k, 500, 5000);
+        auto [new_order, new_score] = late_acceptance_hill_climbing(best_order, bonus_enclosures, enclosure_weights, k, 500, 1000);
         if (new_score > best_score) {
             unique_lock<mutex> lock(best_order_mutex);
             best_order = new_order;

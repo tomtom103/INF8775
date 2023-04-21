@@ -2,7 +2,7 @@
 CXX = g++
 
 # Compiler flags
-CXXFLAGS = -std=c++17 -Wall -g
+CXXFLAGS = -std=c++17 -Wall -g -fopenmp
 
 # Output executable name
 TARGET = main
