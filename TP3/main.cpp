@@ -182,9 +182,12 @@ long long total_score(const vector<vector<pair<int, int>>>& solution, const vect
             for (const auto& [x_start, y_start] : solution[zero]) {
                 for (const auto& [x_end, y_end] : solution[one]) {
                     int length = distance(x_start, y_start, x_end, y_end);
-                    if (length < distances[zero][one]) {
-                        distances[zero][one] = length;
-                        distances[one][zero] = length;
+                    #pragma omp critical
+                    {
+                        if (length < distances[zero][one]) {
+                            distances[zero][one] = length;
+                            distances[one][zero] = length;
+                        }
                     }
                 }
             }
