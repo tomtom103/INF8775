@@ -168,7 +168,6 @@ for i, _ in enumerate(sol):
         somme += poids[i][j]*distances[i][j]
 
 #vérifier la contrainte de distance
-print(theme)
 combs_theme = combinations(theme,2)
 bonus = m**2
 for paire in combs_theme:

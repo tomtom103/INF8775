@@ -49,6 +49,8 @@ def generate_spiral_grid(enclosures: List[Enclosure]) -> List[List[Tuple[int, in
     # Calculate dimensions of the _bbox
     rows = cols = math.ceil(math.sqrt(n))
 
+    visited = set()
+
     # Initialize the _bbox
     solution = [[] for _ in range(len(enclosures))]
 
@@ -62,6 +64,7 @@ def generate_spiral_grid(enclosures: List[Enclosure]) -> List[List[Tuple[int, in
 
     for id in unrolled_enclosures:
         solution[id].append((row, col))
+        visited.add((row, col))
 
         if steps_taken == steps_in_current_direction:
             direction_index = (direction_index + 1) % 4
@@ -71,7 +74,7 @@ def generate_spiral_grid(enclosures: List[Enclosure]) -> List[List[Tuple[int, in
 
         next_row, next_col = row + directions[direction_index][0], col + directions[direction_index][1]
         
-        while not (0 <= next_row < rows and 0 <= next_col < cols):
+        while not (0 <= next_row < rows and 0 <= next_col < cols) or (next_row, next_col) in visited:
             direction_index = (direction_index + 1) % 4
             next_row, next_col = row + directions[direction_index][0], col + directions[direction_index][1]
             if direction_index in (0, 2):
@@ -83,9 +86,21 @@ def generate_spiral_grid(enclosures: List[Enclosure]) -> List[List[Tuple[int, in
     return solution
 
 
-def swap_random_enclosures(enclosures: List[Enclosure]) -> None:
-    idx1, idx2 = random.sample(range(len(enclosures)), 2)
-    enclosures[idx1], enclosures[idx2] = enclosures[idx2], enclosures[idx1]
+def swap_random_enclosures(enclosures: List[Enclosure]) -> List[Enclosure]:
+    operation = random.choice(["swap", "rotate"])
+
+    if operation == "swap":
+        idx1, idx2 = random.sample(range(len(enclosures)), 2)
+        enclosures[idx1], enclosures[idx2] = enclosures[idx2], enclosures[idx1]
+
+    elif operation == "rotate":
+        rotate_left = random.choice([True, False])
+        if rotate_left:
+            enclosures.insert(0, enclosures.pop())
+        else:
+            enclosures.append(enclosures.pop(0))
+
+    return enclosures
 
 
 def distance(x1: int, y1: int, x2: int, y2: int) -> int:
@@ -120,49 +135,81 @@ def total_score(
 
     return bonus - somme
 
-
-def simulated_annealing(
+def late_acceptance_hill_climbing(
     enclosures: List[Enclosure],
     bonus_enclosures: List[int],
     weights: List[List[int]],
     k: int,
-    initial_temperature: float,
-    cooling_rate: float,
+    look_back_steps: int,
+    max_iterations: int,
     send_end: Connection
-) -> None:
+) -> List[Enclosure]:
     best_order = enclosures[:]
     best_score = total_score(generate_spiral_grid(enclosures), weights, bonus_enclosures, k)
 
-    current_temperature = initial_temperature
+    current_solution = enclosures[:]
+    current_score = best_score
 
-    while current_temperature > 1:
-        new_order = enclosures[:]
-        swap_random_enclosures(new_order)
+    scores_history = [current_score] * look_back_steps
 
+    for iteration in range(max_iterations):
+        new_solution = swap_random_enclosures(current_solution[:])
+        new_score = total_score(generate_spiral_grid(new_solution), weights, bonus_enclosures, k)
 
-        current_score = total_score(generate_spiral_grid(enclosures), weights, bonus_enclosures, k)
-        new_score = total_score(generate_spiral_grid(new_order), weights, bonus_enclosures, k)
-        score_diff = new_score - current_score
-
-        if score_diff < 0 or math.exp(-score_diff / current_temperature) > random.random():
-            enclosures = new_order
+        history_index = iteration % look_back_steps
+        if new_score >= scores_history[history_index]:
+            current_solution = new_solution
             current_score = new_score
-        
+            scores_history[history_index] = new_score
+
         if current_score > best_score:
-            best_order = enclosures[:]
+            best_order = current_solution[:]
             best_score = current_score
 
-        current_temperature *= cooling_rate
-    
     send_end.send((best_order, best_score))
 
-def simulated_annealing_parallel(
+# def simulated_annealing(
+#     enclosures: List[Enclosure],
+#     bonus_enclosures: List[int],
+#     weights: List[List[int]],
+#     k: int,
+#     initial_temperature: float,
+#     cooling_rate: float,
+#     send_end: Connection
+# ) -> None:
+#     best_order = enclosures[:]
+#     best_score = total_score(generate_spiral_grid(enclosures), weights, bonus_enclosures, k)
+
+#     current_temperature = initial_temperature
+
+#     while current_temperature > 1:
+#         new_order = enclosures[:]
+#         new_order = swap_random_enclosures(new_order)
+
+
+#         current_score = total_score(generate_spiral_grid(enclosures), weights, bonus_enclosures, k)
+#         new_score = total_score(generate_spiral_grid(new_order), weights, bonus_enclosures, k)
+#         score_diff = new_score - current_score
+
+#         if score_diff < 0 or math.exp(-score_diff / current_temperature) > random.random():
+#             enclosures = new_order
+#             current_score = new_score
+        
+#         if current_score > best_score:
+#             best_order = enclosures[:]
+#             best_score = current_score
+
+#         current_temperature *= cooling_rate
+    
+#     send_end.send((best_order, best_score))
+
+def late_acceptance_hill_climbing_parallel(
     enclosures: List[Enclosure],
     bonus_enclosures: List[int],
     weights: List[List[int]],
     k: int,
-    initial_temperature: float,
-    cooling_rate: float,
+    lookback_steps: int,
+    max_iterations: int,
     num_processes: int,
 ) -> Tuple[List[Enclosure], int]:
     processes: List[multiprocessing.Process] = []
@@ -170,8 +217,16 @@ def simulated_annealing_parallel(
     for _ in range(num_processes):
         recv_end, send_end = multiprocessing.Pipe(False)
         p = multiprocessing.Process(
-            target=simulated_annealing,
-            args=(enclosures, bonus_enclosures, weights, k, initial_temperature, cooling_rate, send_end)
+            target=late_acceptance_hill_climbing,
+            args=(
+                enclosures, 
+                bonus_enclosures, 
+                weights, 
+                k, 
+                lookback_steps,
+                max_iterations,
+                send_end
+            )
         )
         processes.append(p)
         pipe_list.append(recv_end)
@@ -219,11 +274,6 @@ signal.signal(signal.SIGINT, handle_exit)
 signal.signal(signal.SIGTERM, handle_exit)
 
 
-class RanOutOfTimeException(Exception):
-    """
-    Exception thrown once we've ran out of time (execution time took too long)
-    """
-
 if __name__ == "__main__":
     # Start 120 second timer
     Timer(120, os.kill, [os.getpid(), signal.SIGTERM]).start()
@@ -247,13 +297,13 @@ if __name__ == "__main__":
         print_solution(solution)
 
     while True:
-        new_order, new_score = simulated_annealing_parallel(
+        new_order, new_score = late_acceptance_hill_climbing_parallel(
             best_order,
             bonus_enclosures,
             enclosure_weights,
             k,
-            initial_temperature=500000,
-            cooling_rate=0.95,
+            lookback_steps=1000,
+            max_iterations=10000,
             num_processes=multiprocessing.cpu_count(),
         )
         if new_score > best_score:
