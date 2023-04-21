@@ -168,40 +168,40 @@ def late_acceptance_hill_climbing(
 
     send_end.send((best_order, best_score))
 
-# def simulated_annealing(
-#     enclosures: List[Enclosure],
-#     bonus_enclosures: List[int],
-#     weights: List[List[int]],
-#     k: int,
-#     initial_temperature: float,
-#     cooling_rate: float,
-#     send_end: Connection
-# ) -> None:
-#     best_order = enclosures[:]
-#     best_score = total_score(generate_spiral_grid(enclosures), weights, bonus_enclosures, k)
+def simulated_annealing(
+    enclosures: List[Enclosure],
+    bonus_enclosures: List[int],
+    weights: List[List[int]],
+    k: int,
+    initial_temperature: float,
+    cooling_rate: float,
+    send_end: Connection
+) -> None:
+    best_order = enclosures[:]
+    best_score = total_score(generate_spiral_grid(enclosures), weights, bonus_enclosures, k)
 
-#     current_temperature = initial_temperature
+    current_temperature = initial_temperature
 
-#     while current_temperature > 1:
-#         new_order = enclosures[:]
-#         new_order = swap_random_enclosures(new_order)
+    while current_temperature > 1:
+        new_order = enclosures[:]
+        new_order = swap_random_enclosures(new_order)
 
 
-#         current_score = total_score(generate_spiral_grid(enclosures), weights, bonus_enclosures, k)
-#         new_score = total_score(generate_spiral_grid(new_order), weights, bonus_enclosures, k)
-#         score_diff = new_score - current_score
+        current_score = total_score(generate_spiral_grid(enclosures), weights, bonus_enclosures, k)
+        new_score = total_score(generate_spiral_grid(new_order), weights, bonus_enclosures, k)
+        score_diff = new_score - current_score
 
-#         if score_diff < 0 or math.exp(-score_diff / current_temperature) > random.random():
-#             enclosures = new_order
-#             current_score = new_score
+        if score_diff < 0 or math.exp(-score_diff / current_temperature) > random.random():
+            enclosures = new_order
+            current_score = new_score
         
-#         if current_score > best_score:
-#             best_order = enclosures[:]
-#             best_score = current_score
+        if current_score > best_score:
+            best_order = enclosures[:]
+            best_score = current_score
 
-#         current_temperature *= cooling_rate
+        current_temperature *= cooling_rate
     
-#     send_end.send((best_order, best_score))
+    send_end.send((best_order, best_score))
 
 def late_acceptance_hill_climbing_parallel(
     enclosures: List[Enclosure],
@@ -295,6 +295,8 @@ if __name__ == "__main__":
     best_score = total_score(solution, enclosure_weights, bonus_enclosures, k)
     if p:
         print_solution(solution)
+    else:
+        print(best_score)
 
     while True:
         new_order, new_score = late_acceptance_hill_climbing_parallel(
@@ -312,3 +314,5 @@ if __name__ == "__main__":
             if p:
                 solution = generate_spiral_grid(best_order)
                 print_solution(solution)
+            else:
+                print(best_score)

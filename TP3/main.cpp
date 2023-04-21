@@ -242,66 +242,66 @@ pair<vector<Enclosure>, long long> late_acceptance_hill_climbing(
     });
 }
 
-// pair<vector<Enclosure>, long long> simulated_annealing_parallel(
-//     vector<Enclosure>& enclosures, 
-//     vector<int>& bonus_enclosures, 
-//     vector<vector<int>>& weights, 
-//     int k, 
-//     double initial_temperature, 
-//     double cooling_rate
-// ) {
-//     int num_threads = thread::hardware_concurrency();
-//     if (num_threads == 0) {
-//         num_threads = 4; // Default number of threads
-//     }
-//     vector<thread> threads(num_threads);
-//     vector<pair<vector<Enclosure>, int>> results(num_threads);
+pair<vector<Enclosure>, long long> simulated_annealing_parallel(
+    vector<Enclosure>& enclosures, 
+    vector<int>& bonus_enclosures, 
+    vector<vector<int>>& weights, 
+    int k, 
+    double initial_temperature, 
+    double cooling_rate
+) {
+    int num_threads = thread::hardware_concurrency();
+    if (num_threads == 0) {
+        num_threads = 4; // Default number of threads
+    }
+    vector<thread> threads(num_threads);
+    vector<pair<vector<Enclosure>, int>> results(num_threads);
 
-//     for (int i = 0; i < num_threads; ++i) {
-//         threads[i] = thread([&results, i, &enclosures, &bonus_enclosures, &weights, k, initial_temperature, cooling_rate]() {
-//             vector<Enclosure> best_order(enclosures.size());
-//             copy(enclosures.begin(), enclosures.end(), best_order.begin());
-//             long long best_score = total_score(generate_spiral_grid(enclosures), weights, bonus_enclosures, k);
+    for (int i = 0; i < num_threads; ++i) {
+        threads[i] = thread([&results, i, &enclosures, &bonus_enclosures, &weights, k, initial_temperature, cooling_rate]() {
+            vector<Enclosure> best_order(enclosures.size());
+            copy(enclosures.begin(), enclosures.end(), best_order.begin());
+            long long best_score = total_score(generate_spiral_grid(enclosures), weights, bonus_enclosures, k);
 
-//             double current_temperature = initial_temperature;
+            double current_temperature = initial_temperature;
 
-//             random_device rd;
-//             mt19937 gen(rd());
-//             uniform_real_distribution<double> dist(0.0, 1.0);
+            random_device rd;
+            mt19937 gen(rd());
+            uniform_real_distribution<double> dist(0.0, 1.0);
 
-//             while (current_temperature > 1) {
-//                 auto new_order = enclosures; // Add missing semicolon
-//                 new_order = swap_random_enclosures(new_order);
+            while (current_temperature > 1) {
+                auto new_order = enclosures; // Add missing semicolon
+                new_order = swap_random_enclosures(new_order);
 
-//                 long long current_score = total_score(generate_spiral_grid(enclosures), weights, bonus_enclosures, k);
-//                 long long new_score = total_score(generate_spiral_grid(new_order), weights, bonus_enclosures, k);
-//                 long long score_diff = new_score - current_score;
+                long long current_score = total_score(generate_spiral_grid(enclosures), weights, bonus_enclosures, k);
+                long long new_score = total_score(generate_spiral_grid(new_order), weights, bonus_enclosures, k);
+                long long score_diff = new_score - current_score;
 
-//                 if (score_diff < 0 || exp(-score_diff / current_temperature) > dist(gen)) {
-//                     // enclosures = new_order; // Remove this line as enclosures is const
-//                     current_score = new_score;
-//                 }
+                if (score_diff < 0 || exp(-score_diff / current_temperature) > dist(gen)) {
+                    // enclosures = new_order; // Remove this line as enclosures is const
+                    current_score = new_score;
+                }
 
-//                 if (current_score > best_score) {
-//                     best_order = new_order; // Assign new_order to best_order instead of enclosures
-//                     best_score = current_score;
-//                 }
+                if (current_score > best_score) {
+                    best_order = new_order; // Assign new_order to best_order instead of enclosures
+                    best_score = current_score;
+                }
 
-//                 current_temperature *= cooling_rate;
-//             }
+                current_temperature *= cooling_rate;
+            }
 
-//             results[i] = make_pair(best_order, best_score);
-//         });
-//     }
+            results[i] = make_pair(best_order, best_score);
+        });
+    }
 
-//     for (auto& thread : threads) {
-//         thread.join();
-//     }
+    for (auto& thread : threads) {
+        thread.join();
+    }
 
-//     return *max_element(results.begin(), results.end(), [](const auto& lhs, const auto& rhs) {
-//         return lhs.second < rhs.second;
-//     });
-// }
+    return *max_element(results.begin(), results.end(), [](const auto& lhs, const auto& rhs) {
+        return lhs.second < rhs.second;
+    });
+}
 
 void print_solution(const vector<vector<pair<int, int>>>& solution) {
     for (const auto& coordinates : solution) {
@@ -397,8 +397,8 @@ int main(int argc, char* argv[]) {
     }
 
     while (true) {
-        // auto [new_order, new_score] = simulated_annealing_parallel(best_order, bonus_enclosures, enclosure_weights, k, 500000, 0.95);
-        auto [new_order, new_score] = late_acceptance_hill_climbing(best_order, bonus_enclosures, enclosure_weights, k, 100, 1000);
+        // auto [new_order, new_score] = simulated_annealing_parallel(best_order, bonus_enclosures, enclosure_weights, k, 500000, 0.99);
+        auto [new_order, new_score] = late_acceptance_hill_climbing(best_order, bonus_enclosures, enclosure_weights, k, 500, 5000);
         if (new_score > best_score) {
             unique_lock<mutex> lock(best_order_mutex);
             best_order = new_order;
