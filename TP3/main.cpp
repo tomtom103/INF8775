@@ -176,18 +176,14 @@ inline int distance(int x1, int y1, int x2, int y2) {
 long long total_score(const vector<vector<pair<int, int>>>& solution, const vector<vector<int>>& weights, const vector<int>& bonus_enclosures, int k) {
     vector<vector<int>> distances(solution.size(), vector<int>(solution.size(), 99999));
 
-    #pragma omp parallel for
     for (size_t zero = 0; zero < solution.size(); ++zero) {
         for (size_t one = zero + 1; one < solution.size(); ++one) {
             for (const auto& [x_start, y_start] : solution[zero]) {
                 for (const auto& [x_end, y_end] : solution[one]) {
                     int length = distance(x_start, y_start, x_end, y_end);
-                    #pragma omp critical
-                    {
-                        if (length < distances[zero][one]) {
-                            distances[zero][one] = length;
-                            distances[one][zero] = length;
-                        }
+                    if (length < distances[zero][one]) {
+                        distances[zero][one] = length;
+                        distances[one][zero] = length;
                     }
                 }
             }
